@@ -1,0 +1,15 @@
+services:
+  intellect-backend:
+    container_name: intellect-backend
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "7204:7204"
+    networks:
+      - shared-app-network
+    restart: unless-stopped
+
+networks:
+  shared-app-network:
+    external: true

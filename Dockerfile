@@ -8,6 +8,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 COPY .env .
 
-EXPOSE 6103
+EXPOSE 7204
 
-CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "6103"] 
+CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "7204"] 
