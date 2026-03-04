@@ -372,7 +372,7 @@ class LLMGenerationController:
                     system_instruction=system_prompt,
                     response_mime_type="application/json",
                     response_schema= feedback_schema,
-                    max_output_tokens=7024,  
+                    max_output_tokens=15024,  
                     # temperature=0.2
                     ),
                     

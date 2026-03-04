@@ -76,7 +76,6 @@ class FeedbackController:
             stop_doing_thing_words=CommonFunctions.get_non_self_comments(stop_altogether)
             predominant_leader_thing=CommonFunctions.get_non_self_comments(stand_out_leader_thing)
             action_areas_thing_data_comment=CommonFunctions.get_non_self_comments(action_areas_thing_data)
-            
             action_areas_thing_data_extended = []
             action_areas_thing_data_extended.append(stand_out_leader_thing_words)
             action_areas_thing_data_extended.append(continue_doing_thing_words)
@@ -139,67 +138,49 @@ No explanations.
 Only JSON.
 """
             stop_prompt = """
-You are a STRICT Educational Feedback Formatter.
+You are analyzing anonymous feedback comments about a principal's performance. Your task is to identify and extract ONLY comments that are PURELY or PRIMARILY focused on actions the principal should STOP, CEASE, or REDUCE doing.
 
-OBJECTIVE:
-Return ONLY clearly negative meaning comments (complaints, problems, harmful behavior).
+STRICT FILTERING RULES - READ CAREFULLY:
 
-DEFINITION OF NEGATIVE COMMENT:
-A comment must clearly express:
-- Complaint
-- Dissatisfaction
-- Unfair treatment
-- Bias
-- Poor behavior
-- Harmful action
-- Negative experience
-- Clear criticism
+EXCLUDE comments that:
+- Are primarily POSITIVE SUGGESTIONS or RECOMMENDATIONS about what TO DO
+- Begin with positive framing like "should do X" or "can do Y" even if they contain negative elements
+- Mix positive recommendations with embedded negative phrases
+- Are observations or statements without clear instruction to stop
+- Suggest starting new behaviors rather than stopping current ones
 
-FILTERING RULES:
-Keep the comment ONLY if the overall meaning is clearly negative.
+INCLUDE ONLY comments that:
+- Begin with or center around stop/cease/reduce language
+- Have the PRIMARY purpose of identifying what NOT to do
+- Focus on ELIMINATING negative behaviors, not ADDING positive ones
+- Use explicit cessation language as the main message
 
-REMOVE completely:
-- Positive comments
-- Appreciation
-- Advisory suggestions without complaint
-- General expectations stated politely
-- Neutral statements
-- Mixed sentiment (positive + negative together)
-- "-", "---"
-- "Nil", "NIL"
-- "no comment", "no comments"
-- "nothing"
-- Empty text
-- Anything unclear in sentiment
+CRITICAL TEST - Ask yourself: "Is the main point of this comment telling someone to STOP something, or to START something?"
 
-CORE RULE:
-INPUT COMMENT = OUTPUT COMMENT.
-Do NOT rewrite, rephrase, expand, shorten, or add words.
-Do NOT change sentence structure.
-Do NOT add prefixes like "Avoid", "Stop", etc.
+Examples of what to EXCLUDE:
+"Treat everyone equally and not be partial" → Main message is positive "treat equally" with embedded negative
+"Make judgement by understanding them and not by listening to others" → Main message is positive "make judgement by understanding"
+"Can delegate responsibilities" → Positive suggestion to start
 
-ALLOWED:
-- Fix very minor grammar or spacing issues only.
-- Highlight ONLY the exact explicit negative words or phrases already present using:
-  <span style="color:red"><strong>negative phrase</strong></span>
-- Do NOT highlight neutral or advisory words.
-- Do NOT create new negative wording.
-- Do NOT highlight the entire sentence unless the full sentence is completely negative.
+Examples of what to INCLUDE:
+"Stop being partial" → Direct stop command
+"Reduce micromanagement" → Direct reduce command
+"Not to judge people by one incident" → Direct negative instruction
+"Cease favouritism" → Direct stop command
 
-IMPORTANT:
-- If the comment is not clearly negative in overall meaning → REMOVE it completely.
-- One valid input comment → exactly one output comment.
-- Preserve original wording.
-- Preserve order.
+For qualifying comments:
+1. Extract the ENTIRE comment ONLY if the PRIMARY purpose is to stop/cease/reduce
+2. Highlight the exact stop-doing phrase using: <span style="color:red"><strong>phrase</strong></span>
+3. If a comment mixes styles but the MAIN intent is clearly stop-doing, extract the whole comment but ONLY highlight the stop-doing portion
 
-OUTPUT:
+Return the extracted comments as a clean list, one per line.
+
+OUTPUT FORMAT:
 Return ONLY valid JSON:
 {
   "stop_doing": [string]
 }
 
-No explanations.
-Only JSON.
 """
             predominant_prompt = """
 You are a STRICT Educational Feedback Formatter.
@@ -391,6 +372,7 @@ Rules:
                 )
                
                 results = await asyncio.gather(task1, task2, task3, task4, task5)
+                # results = await asyncio.gather(task2)
                 return results  
 
 
@@ -399,7 +381,8 @@ Rules:
             analysis_general_predominant_leader_thing, \
             action_areas_thing_llm_generate, \
             stand_out_leader_thing_generate = await run_parallel_analysis()     
-            print("stand_out_leader_thing_generate", stand_out_leader_thing_generate)
+            # analysis_general_stop_doing, = await run_parallel_analysis()
+            # print("analysis_general_stop_doing", analysis_general_stop_doing)
             
             return JSONResponse(
                 status_code=200,
