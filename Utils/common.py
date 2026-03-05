@@ -16,7 +16,70 @@ class CommonFunctions:
             question_grouped[question].append(row)
 
         return question_grouped
+    
+    
+    @staticmethod
+    def all_question_wise_data(file1_records):
+        right_culture = [
+            row for row in file1_records if row.get("Name") == "Creating the Right Culture"
+        ]
+        leadership_style = [
+            row for row in file1_records if row.get("Name") == "Leadership Style"
+        ]
+        leadership_staff_dev = [
+            row for row in file1_records if row.get("Name") == "Leadership for Staff Performance & Development"
+        ]
+        educational_quality = [
+            row for row in file1_records if row.get("Name") == "Educational Quality & Student Outcomes"
+        ]
+        engagement_with_management = [
+            row for row in file1_records if row.get("Name") == "Engagement with Management"
+        ]
 
+        right_culture_questionwise = CommonFunctions.questionwise_avg_by_rate_group(right_culture)
+        leadership_style_questionwise = CommonFunctions.questionwise_avg_by_rate_group(leadership_style)
+        leadership_staff_dev_questionwise = CommonFunctions.questionwise_avg_by_rate_group(leadership_staff_dev)
+        educational_quality_questionwise = CommonFunctions.questionwise_avg_by_rate_group(educational_quality)
+        engagement_with_management_questionwise = CommonFunctions.questionwise_avg_by_rate_group(engagement_with_management)
+
+        combined_questionwise = {}
+        combined_questionwise.update(right_culture_questionwise)
+        combined_questionwise.update(leadership_style_questionwise)
+        combined_questionwise.update(leadership_staff_dev_questionwise)
+        combined_questionwise.update(educational_quality_questionwise)
+        combined_questionwise.update(engagement_with_management_questionwise)
+
+        return combined_questionwise
+    
+    @staticmethod
+    def find_comparision_year_data(record1, record2):
+        record1 = record1 or {}
+        record2 = record2 or {}
+
+        all_questions = set(record1.keys()) | set(record2.keys())
+        diff_data = {}
+
+        for question in all_questions:
+            groups1 = record1.get(question) or {}
+            groups2 = record2.get(question) or {}
+
+            all_groups = set(groups1.keys()) | set(groups2.keys())
+            group_diff = {}
+            for group in all_groups:
+                v1 = groups1.get(group)
+                v2 = groups2.get(group)
+                if v1 is None or v2 is None:
+                    group_diff[group] = None
+                else:
+                    group_diff[group] = round(v1 - v2, 2)
+
+            diff_data[question] = group_diff
+
+        return diff_data
+    
+    
+
+    
 
     @staticmethod
     def questionwise_avg_by_rate_group(records):

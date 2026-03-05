@@ -14,20 +14,59 @@ class FeedbackController:
     
     async def get_feedback_data_excel(self,file):
         try:
-            if file is None or file.file is None:
+            if file is None:
                 return JSONResponse(
                     status_code=400,
                     content={"message": "File is required."}
                 )
 
-            df = pd.read_excel(file.file)
-            df = df.replace([np.nan, np.inf, -np.inf], None)
-            for col in df.columns:
-                if pd.api.types.is_datetime64_any_dtype(df[col]):
-                    df[col] = df[col].astype(str)
+            files = file if isinstance(file, (list, tuple)) else [file]
+            if not files or len(files) != 3:
+                return JSONResponse(
+                    status_code=400,
+                    content={"message": "Exactly 3 Excel files are required."}
+                )
 
-            data = df.to_dict(orient="records")
+            if any(f is None or getattr(f, "file", None) is None for f in files):
+                return JSONResponse(
+                    status_code=400,
+                    content={"message": "File is required."}
+                )
 
+            def read_excel_records(uploaded_file):
+                uploaded_file.file.seek(0)
+                df = pd.read_excel(uploaded_file.file)
+                df = clean_dataframe(df)
+                return df.to_dict(orient="records") if df is not None else []
+
+            def clean_dataframe(df):
+                if df is not None:
+                    df = df.replace([np.nan, np.inf, -np.inf], None)
+                    for col in df.columns:
+                        if pd.api.types.is_datetime64_any_dtype(df[col]):
+                            df[col] = df[col].astype(str)
+                return df
+            file1_data = read_excel_records(files[0])
+            file2_data = read_excel_records(files[1])
+            file3_data = read_excel_records(files[2])
+
+            file1_name = getattr(files[0], "filename", None)
+            file2_name = getattr(files[1], "filename", None)
+            file3_name = getattr(files[2], "filename", None)
+
+     
+            data = file1_data
+            if not data:
+                return JSONResponse(
+                    status_code=400,
+                    content={"message": "No data found in uploaded file."}
+                )
+
+             
+            file2_question_data = CommonFunctions.all_question_wise_data(file2_data)
+            file3_question_data = CommonFunctions.all_question_wise_data(file3_data)
+            comparision_data=CommonFunctions.find_comparision_year_data(file2_question_data,file3_question_data)
+            print("comparision_data", comparision_data)
             name=data[0].get('Employee Name') or data[0].get('Name') or 'Employee Name'
             right_culture = [
                 row for row in data if row.get("Name") == "Creating the Right Culture"
@@ -376,11 +415,11 @@ Rules:
                 return results  
 
 
-            analysis_general_continue_doing, \
-            analysis_general_stop_doing, \
-            analysis_general_predominant_leader_thing, \
-            action_areas_thing_llm_generate, \
-            stand_out_leader_thing_generate = await run_parallel_analysis()     
+            # analysis_general_continue_doing, \
+            # analysis_general_stop_doing, \
+            # analysis_general_predominant_leader_thing, \
+            # action_areas_thing_llm_generate, \
+            # stand_out_leader_thing_generate = await run_parallel_analysis()     
             # analysis_general_stop_doing, = await run_parallel_analysis()
             # print("analysis_general_stop_doing", analysis_general_stop_doing)
             
@@ -404,11 +443,11 @@ Rules:
                     "engagement_with_management_competency": engagement_with_management_competency,
                     "nominee_leadership":abc_questions,
                     "workplace_culture":workplace_culture_words,
-                    "predominant_leader_most_thing":stand_out_leader_thing_generate['structured']['stand_out_leader'] if stand_out_leader_thing_generate['structured'] else [],
-                    "continue_doing_thing":analysis_general_continue_doing['structured']['continue_doing'] if analysis_general_continue_doing['structured'] else [],
-                    "stop_doing_thing":analysis_general_stop_doing['structured']['stop_doing'] if analysis_general_stop_doing['structured'] else [],
-                    "predominant_leader_thing":analysis_general_predominant_leader_thing['structured']['predominant_leader_thing'] if analysis_general_predominant_leader_thing['structured'] else [],
-                    "action_areas_thing":action_areas_thing_llm_generate['structured']
+                    # "predominant_leader_most_thing":stand_out_leader_thing_generate['structured']['stand_out_leader'] if stand_out_leader_thing_generate['structured'] else [],
+                    # "continue_doing_thing":analysis_general_continue_doing['structured']['continue_doing'] if analysis_general_continue_doing['structured'] else [],
+                    # "stop_doing_thing":analysis_general_stop_doing['structured']['stop_doing'] if analysis_general_stop_doing['structured'] else [],
+                    # "predominant_leader_thing":analysis_general_predominant_leader_thing['structured']['predominant_leader_thing'] if analysis_general_predominant_leader_thing['structured'] else [],
+                    # "action_areas_thing":action_areas_thing_llm_generate['structured']
                 
                 }
             )
