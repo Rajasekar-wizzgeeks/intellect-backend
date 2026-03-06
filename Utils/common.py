@@ -5,12 +5,19 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
 class CommonFunctions:
+    
+    
+
     @staticmethod
     def grouped_question(records):
         question_grouped = defaultdict(list)
-
+        def clean_question(text):
+            text = text.replace("_x000D_", " ")
+            text = re.sub(r"\s+", " ", text)
+            return text.strip()
+        
         for row in records:
-            question = row.get("Question")
+            question = clean_question(row.get("Question", ""))
             if not question:
                 continue
             question_grouped[question].append(row)
@@ -92,7 +99,6 @@ class CommonFunctions:
             question_grouped[question].append(row)
 
         final_output = {}
-
         for question, rows in question_grouped.items():
             grouped = defaultdict(list)
             rater_groups_set = set()
@@ -148,7 +154,13 @@ class CommonFunctions:
                     avg_result[group] = None
 
             final_output[question] = avg_result
-
+        final_output = dict(
+            sorted(
+                final_output.items(),
+                key=lambda x: (x[1].get("Subordinates") is None, x[1].get("Subordinates", 0)),
+                reverse=True
+            )
+        )
         return final_output
 
 
@@ -165,7 +177,7 @@ class CommonFunctions:
         final_avg = {}
         for group, values in grouped.items():
             final_avg[group] = round(sum(values) / len(values), 2)
-
+        
         return final_avg
 
 
@@ -263,23 +275,31 @@ class CommonFunctions:
         question, records = next(iter(data.items()))
 
         question_clean = question.replace("_x000D_", "").strip()
-        option_pattern = re.findall(
-            r"(?:^|\n)\s*([A-C])\)\t([^\n]+)(?:_x000D_)?",
-            question_clean,
-            re.DOTALL
+        question_clean = re.sub(r"\s+", " ", question_clean)
+        has_abc = re.search(
+            r'[Aa]\s*/\s*[Bb]\s*/\s*[Cc]|\(?[Aa]\s*/\s*[Bb]\s*/\s*[Cc]\)?',
+            question_clean
         )
-        if not option_pattern:
+        if not has_abc:
             return {}
 
         option_map = {}
-        for letter, text in option_pattern:
-            option_map[letter.upper()] = text.strip().lower()
+        option_parts = re.findall(
+            r"\b([AaBbCc])\b\s*[\)\]\.:\-]\s*(.+?)(?=\s*\b[AaBbCc]\b\s*[\)\]\.:\-]|$)",
+            question_clean
+        )
+        if option_parts:
+            for letter, text in option_parts:
+                option_map[letter.upper()] = text.strip().lower()
+        else:
+            option_map = {"A": "a", "B": "b", "C": "c"}
 
         option_counts = defaultdict(int)
-
-        for item in records:
+        
+        for item in records:        
             comment = item.get("Comment")
             if not comment:
+                # print("Empty comment found, skipping...",item)
                 continue
 
             comment_clean = comment.strip().lower()
@@ -311,12 +331,14 @@ class CommonFunctions:
 
         for opt in option_map.keys():
             option_counts.setdefault(opt, 0)
+        
 
         per_option = {}
         for letter, text in option_map.items():
             per_option[letter] = {
                 "text": text.capitalize(),
-                "count": option_counts.get(letter, 0)
+                "count": option_counts.get(letter, 0),
+                "percentage": round((option_counts.get(letter, 0) / len(records)) * 100, 2) if len(records) > 0 else 0
             }
 
         return per_option
@@ -348,8 +370,7 @@ class CommonFunctions:
 
                     if clean_word and clean_word !='nil' :
                         word_counts[clean_word] += 1
-
-        sorted_items = sorted(word_counts.items(), key=lambda x: x[1], reverse=True)[:15]
+        sorted_items = sorted(word_counts.items(), key=lambda x: x[1], reverse=True)[:30]
         top_words = [word for word, _ in sorted_items]
         return top_words
 
@@ -366,7 +387,7 @@ class CommonFunctions:
             if comment and comment.strip() :
                 comments.append(comment.strip())
 
-        return comments
+        return comments , records[0]['Question'] if records else ""
 
 
    

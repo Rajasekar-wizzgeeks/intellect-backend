@@ -5,7 +5,7 @@ import numpy as np
 from Utils.common import CommonFunctions
 from Controllers.llmGenerationController import LLMGenerationController
 import asyncio
-
+import json
 
 
 
@@ -21,12 +21,6 @@ class FeedbackController:
                 )
 
             files = file if isinstance(file, (list, tuple)) else [file]
-            if not files or len(files) != 3:
-                return JSONResponse(
-                    status_code=400,
-                    content={"message": "Exactly 3 Excel files are required."}
-                )
-
             if any(f is None or getattr(f, "file", None) is None for f in files):
                 return JSONResponse(
                     status_code=400,
@@ -47,15 +41,20 @@ class FeedbackController:
                             df[col] = df[col].astype(str)
                 return df
             file1_data = read_excel_records(files[0])
-            file2_data = read_excel_records(files[1])
-            file3_data = read_excel_records(files[2])
+            comparision_file1=[]
+            comparision_file2=[]
+            if len(files) > 1:
+                file2_data = read_excel_records(files[1])
+                comparision_file1 = file1_data
+                comparision_file2 = file2_data
+            if len(files) > 2:
+                file2_data = read_excel_records(files[1])
+                file3_data = read_excel_records(files[2])
+                comparision_file1 = file2_data
+                comparision_file2 = file3_data
 
-            file1_name = getattr(files[0], "filename", None)
-            file2_name = getattr(files[1], "filename", None)
-            file3_name = getattr(files[2], "filename", None)
-
-     
             data = file1_data
+            
             if not data:
                 return JSONResponse(
                     status_code=400,
@@ -63,10 +62,10 @@ class FeedbackController:
                 )
 
              
-            file2_question_data = CommonFunctions.all_question_wise_data(file2_data)
-            file3_question_data = CommonFunctions.all_question_wise_data(file3_data)
-            comparision_data=CommonFunctions.find_comparision_year_data(file2_question_data,file3_question_data)
-            print("comparision_data", comparision_data)
+            # file2_question_data = CommonFunctions.all_question_wise_data(comparision_file1)
+            # file3_question_data = CommonFunctions.all_question_wise_data(comparision_file2)
+            # comparision_data=CommonFunctions.find_comparision_year_data(file2_question_data,file3_question_data)
+            # print("comparision_data", comparision_data)
             name=data[0].get('Employee Name') or data[0].get('Name') or 'Employee Name'
             right_culture = [
                 row for row in data if row.get("Name") == "Creating the Right Culture"
@@ -111,9 +110,9 @@ class FeedbackController:
 
             workplace_culture_words=CommonFunctions.count_workplace_culture_words(workplace_culture)
             stand_out_leader_thing_words=CommonFunctions.count_workplace_culture_words(stand_out_leader_thing)
-            continue_doing_thing_words=CommonFunctions.get_non_self_comments(continue_doing_thing)
-            stop_doing_thing_words=CommonFunctions.get_non_self_comments(stop_altogether)
-            predominant_leader_thing=CommonFunctions.get_non_self_comments(stand_out_leader_thing)
+            continue_doing_thing_words,continueQuestion=CommonFunctions.get_non_self_comments(continue_doing_thing)
+            stop_doing_thing_words,stopQuestion=CommonFunctions.get_non_self_comments(stop_altogether)
+            predominant_leader_thing,predominantQuestion=CommonFunctions.get_non_self_comments(stand_out_leader_thing)
             action_areas_thing_data_comment=CommonFunctions.get_non_self_comments(action_areas_thing_data)
             action_areas_thing_data_extended = []
             action_areas_thing_data_extended.append(stand_out_leader_thing_words)
@@ -123,104 +122,203 @@ class FeedbackController:
             controller = LLMGenerationController()
 
             continue_prompt = """
-You are a STRICT Educational Feedback Formatter.
+You are a STRICT Educational Comment Formatter.
+
+INPUT:
+You will receive:
+{
+  "question": "<question text>",
+  "comments": ["comment1", "comment2", "comment3", ...]
+}
 
 OBJECTIVE:
-Return ONLY clearly positive comments.
+Return comments that are clearly related to the given question and formatted properly.
 
-FILTERING RULES:
-Keep a comment ONLY if it clearly expresses:
-- Appreciation
-- Strength
-- Encouragement
-- Positive quality
-- Good practice
-- Constructive positive expectation
+STRICT RULES:
 
-REMOVE completely:
-- Negative comments
-- Complaints
-- Criticism
-- Neutral statements
-- Mixed sentiment (positive + negative together)
-- "-", "---"
-- "Nil", "NIL"
-- "no comment", "no comments"
+1. QUESTION RELEVANCE
+- Every comment MUST be related to the given question.
+- If a comment is unrelated to the question, remove it.
+
+2. NO MERGING
+- NEVER merge multiple comments.
+- Each input comment must remain an individual item.
+- One input comment = one output comment.
+
+3. ORDER PRESERVATION
+- Maintain the exact same order as the input list.
+- Do NOT reorder comments.
+- Do NOT collapse or combine comments.
+
+Example:
+Input:
+[
+ "comment1",
+ "comment2",
+ "comment3"
+]
+
+Output MUST be:
+[
+ "comment1",
+ "comment2",
+ "comment3"
+]
+
+4. MARKDOWN BOLD RULE
+- Apply Markdown bold (**text**) ONLY to clearly positive traits or qualities already present in the sentence.
+- Do NOT add new praise or new words.
+- Do NOT bold entire sentences.
+- Only bold the positive quality words.
+
+Example:
+"Encouragement"
+→ "**Encouragement**"
+
+"Clear communication with staff"
+→ "**Clear communication** with staff"
+
+5. DO NOT MODIFY MEANING
+- Do NOT rewrite the comment meaning.
+- Only apply formatting when needed.
+- Do NOT generate new comments.
+
+6. REMOVE INVALID COMMENTS
+Remove comments that are:
+- "-", "--", "---"
+- "nil"
 - "nothing"
-- Empty text
-- Anything unclear in sentiment
+- "NO COMMENT"
+- empty text
+- meaningless placeholders
 
-CORE RULE:
-INPUT COMMENT = OUTPUT COMMENT.
-Do NOT rewrite, rephrase, expand, shorten, or add new words.
-Do NOT change sentence structure.
+7. KEEP COMMENTS SEPARATE
+- Each comment must stay as its own array item.
+- Never collapse comments into a paragraph.
 
-ALLOWED:
-- Fix very minor grammar or spacing issues only.
-- Apply Markdown bold (**text**) ONLY to clearly positive traits or qualities that already exist in the sentence.
-- Do NOT invent new words for bolding.
-- Do NOT bold the entire sentence unless the full sentence is purely a positive trait.
+OUTPUT FORMAT (STRICT):
+Return ONLY valid JSON.
 
-IMPORTANT:
-- If a comment is not clearly positive → REMOVE it completely.
-- One valid input comment → exactly one output comment.
-- Preserve original wording.
-- Preserve order.
-
-OUTPUT:
-Return ONLY valid JSON:
 {
-  "continue_doing": [string]
+  "continue_doing": [
+    "comment1",
+    "comment2",
+    "comment3"
+  ]
 }
 
-No explanations.
-Only JSON.
+STRICT OUTPUT RULES:
+- No explanations
+- No extra text
+- No markdown outside comments
+- Only the JSON object above
 """
-            stop_prompt = """
-You are analyzing anonymous feedback comments about a principal's performance. Your task is to identify and extract ONLY comments that are PURELY or PRIMARILY focused on actions the principal should STOP, CEASE, or REDUCE doing.
+            stop_prompt = """You are a STRICT Educational Comment Formatter.
 
-STRICT FILTERING RULES - READ CAREFULLY:
-
-EXCLUDE comments that:
-- Are primarily POSITIVE SUGGESTIONS or RECOMMENDATIONS about what TO DO
-- Begin with positive framing like "should do X" or "can do Y" even if they contain negative elements
-- Mix positive recommendations with embedded negative phrases
-- Are observations or statements without clear instruction to stop
-- Suggest starting new behaviors rather than stopping current ones
-
-INCLUDE ONLY comments that:
-- Begin with or center around stop/cease/reduce language
-- Have the PRIMARY purpose of identifying what NOT to do
-- Focus on ELIMINATING negative behaviors, not ADDING positive ones
-- Use explicit cessation language as the main message
-
-CRITICAL TEST - Ask yourself: "Is the main point of this comment telling someone to STOP something, or to START something?"
-
-Examples of what to EXCLUDE:
-"Treat everyone equally and not be partial" → Main message is positive "treat equally" with embedded negative
-"Make judgement by understanding them and not by listening to others" → Main message is positive "make judgement by understanding"
-"Can delegate responsibilities" → Positive suggestion to start
-
-Examples of what to INCLUDE:
-"Stop being partial" → Direct stop command
-"Reduce micromanagement" → Direct reduce command
-"Not to judge people by one incident" → Direct negative instruction
-"Cease favouritism" → Direct stop command
-
-For qualifying comments:
-1. Extract the ENTIRE comment ONLY if the PRIMARY purpose is to stop/cease/reduce
-2. Highlight the exact stop-doing phrase using: <span style="color:red"><strong>phrase</strong></span>
-3. If a comment mixes styles but the MAIN intent is clearly stop-doing, extract the whole comment but ONLY highlight the stop-doing portion
-
-Return the extracted comments as a clean list, one per line.
-
-OUTPUT FORMAT:
-Return ONLY valid JSON:
+INPUT:
+You will receive:
 {
-  "stop_doing": [string]
+  "question": "<question text>",
+  "comments": ["comment1", "comment2", "comment3", ...]
 }
 
+OBJECTIVE:
+Return comments that are clearly related to the given question and formatted properly.
+
+STRICT RULES:
+
+1. QUESTION RELEVANCE
+- Every comment MUST be related to the given question.
+- If a comment is unrelated to the question, remove it.
+
+2. POSITIVE QUESTION RULE
+- If the question asks about strengths, appreciation, encouragement, or "continue doing",
+  then ONLY return comments with a positive tone.
+- Remove comments that contain:
+  - criticism
+  - complaints
+  - negative tone
+  - mixed sentiment (positive + negative)
+
+3. NEGATIVE PHRASE HIGHLIGHT RULE
+- If a comment contains a clearly negative phrase, highlight ONLY the negative phrase using:
+
+<span style="color:red"><strong>negative phrase</strong></span>
+
+Examples:
+"Do not judge people by one incident"
+
+→ "<span style="color:red"><strong>Do not judge people by one incident</strong></span>"
+
+"Avoid favoritism"
+
+→ "<span style="color:red"><strong>Avoid favoritism</strong></span>"
+
+- Only highlight the negative portion, not the entire sentence unless the full sentence is negative instruction.
+
+4. NO MERGING
+- NEVER merge multiple comments.
+- Each input comment must remain an individual item.
+- One input comment = one output comment.
+
+5. ORDER PRESERVATION
+- Maintain the exact same order as the input list.
+- Do NOT reorder comments.
+- Do NOT collapse or combine comments.
+
+6. MARKDOWN BOLD RULE
+- Apply Markdown bold (**text**) ONLY to clearly positive traits or qualities already present in the sentence.
+- Do NOT add new praise or new words.
+- Do NOT bold entire sentences.
+- Only bold the positive quality words.
+
+Examples:
+
+"Encouragement"
+→ "**Encouragement**"
+
+"Clear communication with staff"
+→ "**Clear communication** with staff"
+
+7. DO NOT MODIFY MEANING
+- Do NOT rewrite the comment meaning.
+- Only apply formatting when needed.
+- Do NOT generate new comments.
+
+8. REMOVE INVALID COMMENTS
+Remove comments that are:
+- "-"
+- "--"
+- "---"
+- "nil"
+- "nothing"
+- "NO COMMENT"
+- empty text
+- meaningless placeholders
+
+9. KEEP COMMENTS SEPARATE
+- Each comment must stay as its own array item.
+- Never collapse comments into a paragraph.
+
+OUTPUT FORMAT (STRICT):
+Return ONLY valid JSON.
+
+{
+  "stop_doing": [
+    "comment1",
+    "comment2",
+    "comment3"
+  ]
+}
+
+STRICT OUTPUT RULES:
+- No explanations
+- No extra text
+- No markdown outside comments
+- Only the JSON object above
+
 """
+          
             predominant_prompt = """
 You are a STRICT Educational Feedback Formatter.
 
@@ -279,21 +377,73 @@ Only JSON.
             stand_out_leader_simple_prompt = """
 You are a leadership feedback processor.
 
+INPUT:
 You will receive a list of short leadership-related phrases.
 
-Your task:
+OBJECTIVE:
+Simplify each phrase while keeping the original meaning.
 
-1. Convert each phrase into simple, easy-to-understand words.
-2. Keep phrases short (maximum 3 words).
-3. Use clear and common vocabulary.
-4. If the original phrase contains the word "leadership", keep the word "Leadership" in the final phrase.
-5. If the original phrase does NOT contain "leadership", do NOT add "Leadership" as a suffix.
-6. Remove words like "and", "approach", "role modeling", "command", etc., and simplify them.
-7. Expand or refine the list to exactly 12 unique traits.
-8. Avoid duplicate meanings.
-9. Do NOT add explanations.
+TASK RULES:
 
-Return output in STRICT JSON format:
+1. SIMPLIFY PHRASES
+- Convert each phrase into simple, easy-to-understand words.
+- Keep phrases short (maximum 3 words).
+- Use clear and common vocabulary.
+
+2. LEADERSHIP WORD RULE
+- If the original phrase contains the word "leadership", keep the word "Leadership" in the final phrase.
+- If the original phrase does NOT contain "leadership", DO NOT add "Leadership".
+
+3. WORD CLEANUP
+Remove unnecessary words such as:
+- "and"
+- "approach"
+- "role modeling"
+- "command"
+- similar filler or complex wording
+
+Keep only the core leadership trait.
+
+4. ORDER PRESERVATION (STRICT)
+- Maintain the EXACT same order as the input list.
+- Each input phrase must produce ONE output phrase.
+- Do NOT reorder phrases.
+- Do NOT merge phrases.
+
+Example:
+
+Input:
+[
+ "Strong leadership approach",
+ "Clear communication",
+ "Team motivation"
+]
+
+Output MUST keep order:
+[
+ "Strong Leadership",
+ "Clear Communication",
+ "Team Motivation"
+]
+
+5. EXPANSION RULE
+- If the input list contains fewer than 12 traits, generate additional simple traits.
+- Add new traits ONLY at the END of the list.
+- Do NOT modify or reorder the original items.
+
+6. UNIQUENESS RULE
+- Ensure all traits are unique.
+- Avoid duplicate meanings.
+
+7. LENGTH RULE
+- Maximum 12 items total.
+- Each item maximum 3 words.
+
+8. DO NOT ADD EXPLANATIONS
+- Return only the phrases.
+
+OUTPUT FORMAT (STRICT):
+Return ONLY valid JSON.
 
 {
   "stand_out_leader": [
@@ -302,14 +452,58 @@ Return output in STRICT JSON format:
   ]
 }
 
-Rules:
-- Maximum 12 items.
-- Each item maximum 3 words.
-- Use simple, clear English.
-- No extra text.
-- No explanations.
-- No duplicate traits.
+STRICT OUTPUT RULES:
+- Maximum 12 items
+- Preserve input order
+- Each phrase maximum 3 words
+- No extra text
+- No explanations
+- Only the JSON object
 """
+            workplace_culture_prompt = """You are an expert in workplace culture analysis.
+
+Your task is to clean and filter a list of frequently mentioned workplace culture words extracted from survey comments.
+
+INPUT:
+A list of words or phrases extracted from employee feedback. The list is already sorted in descending order of frequency.
+
+OBJECTIVE:
+Return exactly 15 words or short phrases that best describe workplace culture.
+
+KEEP only:
+- Workplace culture adjectives
+- Short descriptive phrases (1–3 words)
+- Words that describe team environment, leadership culture, or work atmosphere.
+
+REMOVE:
+- Sentences or long explanations
+- Irrelevant phrases
+- Technical artifacts like "_x000d_"
+- Words unrelated to workplace culture
+- Duplicates or very similar variations
+- Phrases longer than 3–4 words
+- Random statements or descriptions
+
+IMPORTANT RULES:
+1. Do NOT change the order of the words.
+2. Do NOT re-sort the list.
+3. Only remove irrelevant items.
+4. Return exactly 15 items.
+5. If more than 15 valid words exist, keep the first 15 based on the original order.
+
+
+OUTPUT FORMAT:
+Return a JSON array.
+
+Example:
+Input:
+["supportive", "good and happy", "the school environment is always changing", "collaborative", "events and learning opportunities"]
+
+Output:
+["supportive", "good and happy", "collaborative"]
+"""
+
+
 
             continue_feedback_schema = {
     "type": "object",
@@ -379,23 +573,51 @@ Rules:
     ]
 }
 
+            workplace_culture_schema = {
+    "type": "object",
+    "properties": {
+        "workplace_culture": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            },
+            "description": "Formatted comments workplace_culture"
+        }
+    },
+    "required": [
+        "workplace_culture"
+    ]
+}
+
             
+            continue_input_data = json.dumps({
+    "question": continueQuestion ,
+    "comments": continue_doing_thing_words
+    })
+            predominant_input_data = json.dumps({
+    "question": predominantQuestion ,
+    "comments": predominant_leader_thing
+    })
+            stop_input_data = json.dumps({
+    "question": stopQuestion ,
+    "comments": stop_doing_thing_words
+    })
             
             async def run_parallel_analysis():
                 task1 =asyncio.to_thread( controller.analysis_comment_to_generate,
-                    continue_doing_thing_words,
+                    continue_input_data,
                     system_prompt=continue_prompt,
                     feedback_schema=continue_feedback_schema
                 )
 
                 task2 = asyncio.to_thread(controller.analysis_comment_to_generate,
-                    stop_doing_thing_words,
+                    stop_input_data,
                     system_prompt=stop_prompt,
                     feedback_schema=stop_feedback_schema
                 )
 
                 task3 = asyncio.to_thread(controller.analysis_comment_to_generate,
-                    predominant_leader_thing,
+                    predominant_input_data,
                     system_prompt=predominant_prompt,
                     feedback_schema=predominant_schema
                 )
@@ -409,20 +631,29 @@ Rules:
                     system_prompt=stand_out_leader_simple_prompt,
                     feedback_schema=stand_out_leader_thing_schema
                 )
+
+                task6 = asyncio.to_thread(controller.analysis_comment_to_generate,
+                    workplace_culture_words,
+                    system_prompt=workplace_culture_prompt,
+                    feedback_schema=workplace_culture_schema
+                )
                
-                results = await asyncio.gather(task1, task2, task3, task4, task5)
+                results = await asyncio.gather(task1, task2, task3, task4, task5, task6)
                 # results = await asyncio.gather(task2)
                 return results  
 
 
-            # analysis_general_continue_doing, \
-            # analysis_general_stop_doing, \
-            # analysis_general_predominant_leader_thing, \
-            # action_areas_thing_llm_generate, \
-            # stand_out_leader_thing_generate = await run_parallel_analysis()     
-            # analysis_general_stop_doing, = await run_parallel_analysis()
-            # print("analysis_general_stop_doing", analysis_general_stop_doing)
+            analysis_general_continue_doing, \
+            analysis_general_stop_doing, \
+            analysis_general_predominant_leader_thing, \
+            action_areas_thing_llm_generate, \
+            stand_out_leader_thing_generate, \
+            workplace_culture_generated_words = await run_parallel_analysis()     
             
+            # analysis_general_stop_doing=controller.analysis_comment_to_generate(stop_input_data,stop_prompt,stop_feedback_schema)
+            # print("analysis_general_stop_doing", analysis_general_stop_doing)
+
+
             return JSONResponse(
                 status_code=200,
                 content={
@@ -442,12 +673,12 @@ Rules:
                     "educational_quality_competency": educational_quality_competency,
                     "engagement_with_management_competency": engagement_with_management_competency,
                     "nominee_leadership":abc_questions,
-                    "workplace_culture":workplace_culture_words,
-                    # "predominant_leader_most_thing":stand_out_leader_thing_generate['structured']['stand_out_leader'] if stand_out_leader_thing_generate['structured'] else [],
-                    # "continue_doing_thing":analysis_general_continue_doing['structured']['continue_doing'] if analysis_general_continue_doing['structured'] else [],
-                    # "stop_doing_thing":analysis_general_stop_doing['structured']['stop_doing'] if analysis_general_stop_doing['structured'] else [],
-                    # "predominant_leader_thing":analysis_general_predominant_leader_thing['structured']['predominant_leader_thing'] if analysis_general_predominant_leader_thing['structured'] else [],
-                    # "action_areas_thing":action_areas_thing_llm_generate['structured']
+                    "workplace_culture":workplace_culture_generated_words['structured']['workplace_culture'] if workplace_culture_generated_words['structured'] else [],
+                    "predominant_leader_most_thing":stand_out_leader_thing_generate['structured']['stand_out_leader'] if stand_out_leader_thing_generate['structured'] else [],
+                    "continue_doing_thing":analysis_general_continue_doing['structured']['continue_doing'] if analysis_general_continue_doing['structured'] else [],
+                    "stop_doing_thing":analysis_general_stop_doing['structured']['stop_doing'] if analysis_general_stop_doing['structured'] else [],
+                    "predominant_leader_thing":analysis_general_predominant_leader_thing['structured']['predominant_leader_thing'] if analysis_general_predominant_leader_thing['structured'] else [],
+                    "action_areas_thing":action_areas_thing_llm_generate['structured']
                 
                 }
             )
