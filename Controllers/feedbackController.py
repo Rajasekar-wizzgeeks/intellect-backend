@@ -60,7 +60,8 @@ class FeedbackController:
                     status_code=400,
                     content={"message": "No data found in uploaded file."}
                 )
-
+            
+            
              
             # file2_question_data = CommonFunctions.all_question_wise_data(comparision_file1)
             # file3_question_data = CommonFunctions.all_question_wise_data(comparision_file2)
@@ -121,204 +122,266 @@ class FeedbackController:
             action_areas_thing_data_extended.extend(action_areas_thing_data_comment)
             controller = LLMGenerationController()
 
-            continue_prompt = """
-You are a STRICT Educational Comment Formatter.
+            continue_prompt = """You are a STRICT Feedback Comment Processor.
 
 INPUT:
-You will receive:
-{
-  "question": "<question text>",
-  "comments": ["comment1", "comment2", "comment3", ...]
-}
+You will receive a list of feedback comments from survey responses.
 
 OBJECTIVE:
-Return comments that are clearly related to the given question and formatted properly.
+Clean and organize the comments while preserving the original meaning.
 
-STRICT RULES:
+RULES:
 
-1. QUESTION RELEVANCE
-- Every comment MUST be related to the given question.
-- If a comment is unrelated to the question, remove it.
+1. KEEP ALL VALID COMMENTS
+- Keep every meaningful comment exactly as written.
+- Remove only meaningless placeholders such as:
+  - "-"
+  - "nil"
+  - "NIL"
+  - "nothing"
+  - "Nothing"
+  - "NO COMMENTS"
+  - "no comments"
+  - empty responses
+- Everything else must be kept.
 
 2. NO MERGING
 - NEVER merge multiple comments.
 - Each input comment must remain an individual item.
 - One input comment = one output comment.
 
-3. ORDER PRESERVATION
-- Maintain the exact same order as the input list.
-- Do NOT reorder comments.
-- Do NOT collapse or combine comments.
+3. FREQUENCY ORDERING
+- Detect comments with similar meaning.
+- Comments that appear frequently (similar ideas repeated by multiple people) must appear FIRST.
+- Comments that appear less frequently should appear later.
+- Do NOT merge similar comments; only reorder them based on frequency of similar ideas.
+
+4. MOST FREQUENT COMMENTS MUST START FIRST
+- Identify the topic/idea that appears the MOST times in the list.
+- Comments related to that most frequent meaning MUST appear at the very beginning of the output list.
+- After that, show comments from the second most frequent meaning, then third, and so on.
+- Maintain original sentences; only reorder them.
+
+Example:
+If comments about **workshops** appear the most:
+- All workshop-related comments should appear first.
+- Then meeting-related comments.
+- Then appreciation-related comments.
+- Then less frequent comments.
+
+5. MARKDOWN POSITIVE HIGHLIGHTING
+Apply Markdown bold (**text**) ONLY when the sentence already contains a clearly positive trait or quality.
+
+Examples of traits that may be bolded if already written:
+- supportive
+- approachable
+- motivating
+- transparent
+- organized
+- encouraging
+- dynamic
+- appreciative
+
+IMPORTANT RULES:
+- Do NOT invent new words for bolding.
+- Only bold the trait words that already exist in the sentence.
+- Do NOT bold the entire sentence unless the full sentence is purely a positive trait.
 
 Example:
 Input:
-[
- "comment1",
- "comment2",
- "comment3"
-]
+"She is approachable and supportive."
 
-Output MUST be:
-[
- "comment1",
- "comment2",
- "comment3"
-]
+Output:
+"She is **approachable** and **supportive**."
 
-4. MARKDOWN BOLD RULE
-- Apply Markdown bold (**text**) ONLY to clearly positive traits or qualities already present in the sentence.
-- Do NOT add new praise or new words.
-- Do NOT bold entire sentences.
-- Only bold the positive quality words.
+6. NEGATIVE PHRASE HIGHLIGHTING
+If a comment contains a clearly negative phrase, highlight ONLY the negative phrase using HTML formatting.
+
+Format:
+<span style="color:red"><strong>negative phrase</strong></span>
+
+Rules:
+- Highlight only the negative phrase, not the whole sentence.
+- Do NOT change the wording of the sentence.
+- Do NOT invent new phrases.
+- Only highlight the exact negative words already written.
 
 Example:
-"Encouragement"
-→ "**Encouragement**"
+Input:
+"He should stop shouting in public."
 
-"Clear communication with staff"
-→ "**Clear communication** with staff"
+Output:
+"He should <span style="color:red"><strong>stop shouting in public</strong></span>."
 
-5. DO NOT MODIFY MEANING
-- Do NOT rewrite the comment meaning.
-- Only apply formatting when needed.
-- Do NOT generate new comments.
+7. DO NOT CHANGE THE SENTENCE
+- Do not rewrite.
+- Do not simplify.
+- Do not summarize.
+- Only remove invalid comments, apply highlighting, and reorder by frequency.
 
-6. REMOVE INVALID COMMENTS
-Remove comments that are:
-- "-", "--", "---"
-- "nil"
-- "nothing"
-- "NO COMMENT"
-- empty text
-- meaningless placeholders
+8. OUTPUT FORMAT
+Return the result as a JSON array.
 
-7. KEEP COMMENTS SEPARATE
-- Each comment must stay as its own array item.
-- Never collapse comments into a paragraph.
+Example format:
 
-OUTPUT FORMAT (STRICT):
-Return ONLY valid JSON.
+[
+"comment 1",
+"comment 2",
+"comment 3"
+]
 
-{
-  "continue_doing": [
-    "comment1",
-    "comment2",
-    "comment3"
-  ]
-}
-
-STRICT OUTPUT RULES:
-- No explanations
-- No extra text
-- No markdown outside comments
-- Only the JSON object above
+IMPORTANT:
+- No explanations.
+- No extra text.
+- Only the final JSON array of comments.
 """
-            stop_prompt = """You are a STRICT Educational Comment Formatter.
+            stop_prompt = """
+You are a STRICT Comment Processor.
 
 INPUT:
-You will receive:
-{
-  "question": "<question text>",
-  "comments": ["comment1", "comment2", "comment3", ...]
-}
+You will receive a JSON array (list) of comment strings.
 
 OBJECTIVE:
-Return comments that are clearly related to the given question and formatted properly.
+Return EVERY valid comment exactly as written, but reordered with STRICT two-phase ordering:
+1) NEGATIVE comments first (frequency-grouped).
+2) After ALL negative comments are finished, output ALL OTHER comments (frequency-grouped).
 
-STRICT RULES:
+ABSOLUTE RULES (MANDATORY):
+1. Do NOT merge, combine, collapse, or deduplicate comments.
+2. Do NOT rewrite, rephrase, expand, shorten, translate, or correct grammar.
+3. Do NOT summarize.
+4. Do NOT add new comments.
+5. Do NOT skip any valid comment.
+6. One input comment string = one output comment string.
+7. If the exact same comment string appears multiple times in input, it MUST appear the same number of times in output.
 
-1. QUESTION RELEVANCE
-- Every comment MUST be related to the given question.
-- If a comment is unrelated to the question, remove it.
+REMOVE ONLY PLACEHOLDER RESPONSES:
+Remove only meaningless responses if the entire comment is exactly (case-insensitive, after trimming spaces):
+nil
+-
+--
+---
+none
+nothing
+no comment
 
-2. POSITIVE QUESTION RULE
-- If the question asks about strengths, appreciation, encouragement, or "continue doing",
-  then ONLY return comments with a positive tone.
-- Remove comments that contain:
-  - criticism
-  - complaints
-  - negative tone
-  - mixed sentiment (positive + negative)
+----------------------------------
 
-3. NEGATIVE PHRASE HIGHLIGHT RULE
-- If a comment contains a clearly negative phrase, highlight ONLY the negative phrase using:
+MANDATORY PROCESSING ALGORITHM
+Striclty followed steps one by one in order.
+You MUST follow the steps below in exact order.
+
+STEP 1 — Separate Comments
+
+Read every comment and classify it into one of two groups:
+
+Group A: Negative comments  
+Examples include:
+- complaints
+- criticism
+- behaviour someone should stop
+- dissatisfaction
+- negative actions
+
+Group B: Other comments
+These include:
+- neutral comments
+- suggestions
+- positive comments
+- unclear comments
+
+----------------------------------
+
+STEP 2 — Frequency Ordering for NEGATIVE Comments
+
+This step is REQUIRED.
+
+1. Analyze ALL comments in Group A.
+2. Identify comments that share the SAME or VERY SIMILAR meaning.
+3. Create meaning groups ONLY for counting frequency.
+
+IMPORTANT:
+Meaning groups are ONLY for calculating frequency.
+You MUST still output each original comment separately.
+
+Example meaning groups (example only):
+Group 1 → fairness / partiality  
+Group 2 → shouting / anger  
+Group 3 → communication issues  
+
+4. Count how many comments belong to each meaning group.
+
+5. Sort meaning groups by frequency (highest → lowest).
+
+6. Output comments in this order:
+
+First → all comments from the most frequent meaning group  
+Second → all comments from the second most frequent meaning group  
+Third → all comments from the third most frequent meaning group  
+
+Continue until ALL negative comments are output.
+
+STABILITY RULE (MANDATORY):
+- Within the SAME meaning group, keep the original relative order from the input list.
+
+TIE RULE (MANDATORY):
+- If two meaning groups have the same frequency, order the meaning groups by which meaning group appears earliest in the input list.
+
+----------------------------------
+
+STEP 3 — Frequency Ordering for OTHER Comments
+
+After ALL negative comments are finished:
+
+1. Take all comments in Group B.
+2. Again group them by similar meaning ONLY to count frequency.
+3. Count how many comments belong to each meaning group.
+4. Sort meaning groups by frequency (highest → lowest).
+
+5. Output comments in this order:
+
+First → comments from the most frequent meaning group  
+Second → comments from the second most frequent meaning group  
+Third → comments from the third most frequent meaning group  
+
+Continue until ALL comments are listed.
+
+----------------------------------
+
+TEXT FORMATTING RULES
+
+1. If a comment contains a clearly negative phrase, highlight ONLY the negative phrase using:
 
 <span style="color:red"><strong>negative phrase</strong></span>
 
-Examples:
-"Do not judge people by one incident"
+2. Highlight ONLY the exact words already present in the sentence.
 
-→ "<span style="color:red"><strong>Do not judge people by one incident</strong></span>"
+3. Apply Markdown bold (**text**) ONLY to clearly positive traits already written in the sentence.
 
-"Avoid favoritism"
+4. Do NOT invent new words.
 
-→ "<span style="color:red"><strong>Avoid favoritism</strong></span>"
+5. Do NOT bold the entire sentence unless the full sentence is purely a positive trait.
 
-- Only highlight the negative portion, not the entire sentence unless the full sentence is negative instruction.
+6. Do NOT change wording.
 
-4. NO MERGING
-- NEVER merge multiple comments.
-- Each input comment must remain an individual item.
-- One input comment = one output comment.
+----------------------------------
 
-5. ORDER PRESERVATION
-- Maintain the exact same order as the input list.
-- Do NOT reorder comments.
-- Do NOT collapse or combine comments.
+OUTPUT FORMAT
 
-6. MARKDOWN BOLD RULE
-- Apply Markdown bold (**text**) ONLY to clearly positive traits or qualities already present in the sentence.
-- Do NOT add new praise or new words.
-- Do NOT bold entire sentences.
-- Only bold the positive quality words.
-
-Examples:
-
-"Encouragement"
-→ "**Encouragement**"
-
-"Clear communication with staff"
-→ "**Clear communication** with staff"
-
-7. DO NOT MODIFY MEANING
-- Do NOT rewrite the comment meaning.
-- Only apply formatting when needed.
-- Do NOT generate new comments.
-
-8. REMOVE INVALID COMMENTS
-Remove comments that are:
-- "-"
-- "--"
-- "---"
-- "nil"
-- "nothing"
-- "NO COMMENT"
-- empty text
-- meaningless placeholders
-
-9. KEEP COMMENTS SEPARATE
-- Each comment must stay as its own array item.
-- Never collapse comments into a paragraph.
-
-OUTPUT FORMAT (STRICT):
-Return ONLY valid JSON.
-
+Return ONLY valid JSON with exactly this shape:
 {
-  "stop_doing": [
-    "comment1",
-    "comment2",
-    "comment3"
-  ]
+  "stop_doing": ["comment 1", "comment 2", "comment 3"]
 }
 
-STRICT OUTPUT RULES:
-- No explanations
-- No extra text
-- No markdown outside comments
-- Only the JSON object above
+----------------------------------
 
+FINAL OUTPUT RULES
+1. The "stop_doing" array MUST contain all kept comments in the correct order.
+2. ALL NEGATIVE comments must appear before ANY OTHER comment.
+3. Within NEGATIVE comments, order by meaning-group frequency (highest to lowest), with stability and tie rules applied.
+4. After all NEGATIVE comments, output ALL OTHER comments ordered by meaning-group frequency (highest to lowest), with the same stability and tie rules.
+5. Output ONLY the JSON object. No extra text.
 """
-          
             predominant_prompt = """
 You are a STRICT Educational Feedback Formatter.
 
@@ -589,36 +652,23 @@ Output:
     ]
 }
 
-            
-            continue_input_data = json.dumps({
-    "question": continueQuestion ,
-    "comments": continue_doing_thing_words
-    })
-            predominant_input_data = json.dumps({
-    "question": predominantQuestion ,
-    "comments": predominant_leader_thing
-    })
-            stop_input_data = json.dumps({
-    "question": stopQuestion ,
-    "comments": stop_doing_thing_words
-    })
-            
+
             async def run_parallel_analysis():
                 task1 =asyncio.to_thread( controller.analysis_comment_to_generate,
-                    continue_input_data,
+                    continue_doing_thing_words,
                     system_prompt=continue_prompt,
                     feedback_schema=continue_feedback_schema
                 )
 
                 task2 = asyncio.to_thread(controller.analysis_comment_to_generate,
-                    stop_input_data,
+                    stop_doing_thing_words,
                     system_prompt=stop_prompt,
                     feedback_schema=stop_feedback_schema
                 )
 
                 task3 = asyncio.to_thread(controller.analysis_comment_to_generate,
-                    predominant_input_data,
-                    system_prompt=predominant_prompt,
+                    predominant_leader_thing,
+                    system_prompt=continue_prompt,
                     feedback_schema=predominant_schema
                 )
                  
@@ -649,10 +699,8 @@ Output:
             action_areas_thing_llm_generate, \
             stand_out_leader_thing_generate, \
             workplace_culture_generated_words = await run_parallel_analysis()     
-            
-            # analysis_general_stop_doing=controller.analysis_comment_to_generate(stop_input_data,stop_prompt,stop_feedback_schema)
-            # print("analysis_general_stop_doing", analysis_general_stop_doing)
-
+            # analysis_general_stop_doing=controller.analysis_comment_to_generate(stop_doing_thing_words,stop_prompt,stop_feedback_schema)
+            # action_areas_thing_llm_generate = controller.generate_action_areas(action_areas_thing_data_extended)
 
             return JSONResponse(
                 status_code=200,
