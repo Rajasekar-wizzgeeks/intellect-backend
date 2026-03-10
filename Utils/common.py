@@ -66,32 +66,48 @@ class CommonFunctions:
         all_questions = set(record1.keys()) | set(record2.keys())
         diff_data = {}
 
+        team_score_key = "Subordinates"
+        threshold = 0.1
+
         for question in all_questions:
             groups1 = record1.get(question) or {}
             groups2 = record2.get(question) or {}
 
-            all_groups = set(groups1.keys()) | set(groups2.keys())
-            group_diff = {}
-            for group in all_groups:
-                v1 = groups1.get(group)
-                v2 = groups2.get(group)
-                if v1 is None or v2 is None:
-                    group_diff[group] = None
-                else:
-                    group_diff[group] = round(v1 - v2, 2)
+            v1 = groups1.get(team_score_key)
+            v2 = groups2.get(team_score_key)
+            if v1 is None or v2 is None:
+                continue
 
-            diff_data[question] = group_diff
+            team_diff = round(v1 - v2, 2)
+            if abs(team_diff) <= threshold:
+                continue
 
-        return diff_data
+            diff_data[question] = team_diff
+
+        sorted_diff_data = dict(
+            sorted(diff_data.items(), key=lambda item: item[1], reverse=True)
+        )
+        return sorted_diff_data
     
     
-
-    
-
+    @staticmethod
+    def questionwise_find_total_response(records):
+        question_grouped = defaultdict(list)
+        for row in records:
+            question = row.get("Question")
+            if not question:
+                continue
+            question_grouped[question].append(row)
+        first_question = next(iter(question_grouped))
+        length = len(question_grouped[first_question])
+        return length
+          
+        
+        
+            
     @staticmethod
     def questionwise_avg_by_rate_group(records):
         question_grouped = defaultdict(list)
-
         for row in records:
             question = row.get("Question")
             if not question:
@@ -165,6 +181,68 @@ class CommonFunctions:
 
 
     @staticmethod
+    def questionwise_avg_from_rating_lists(questionwise_rating_lists, merge_others_into_subordinates=True, ndigits=2):
+        if not questionwise_rating_lists:
+            return {}
+
+        if isinstance(questionwise_rating_lists, list):
+            merged = {}
+            for item in questionwise_rating_lists:
+                if isinstance(item, dict):
+                    merged.update(item)
+            questionwise_rating_lists = merged
+
+        def avg(values):
+            cleaned = []
+            for v in values or []:
+                if v is None:
+                    continue
+                if isinstance(v, (int, float)):
+                    cleaned.append(float(v))
+                    continue
+                try:
+                    cleaned.append(float(v))
+                except (TypeError, ValueError):
+                    continue
+            if not cleaned:
+                return None
+            return round(sum(cleaned) / len(cleaned), ndigits)
+
+        out = {}
+        for question, groups in (questionwise_rating_lists or {}).items():
+            if not isinstance(groups, dict):
+                continue
+
+            result = {}
+            sub_vals = list(groups.get("Subordinates") or [])
+            oth_vals = list(groups.get("Others") or [])
+            if merge_others_into_subordinates and (sub_vals or oth_vals):
+                sub_avg = avg(sub_vals + oth_vals)
+                if sub_avg is not None:
+                    result["Subordinates"] = sub_avg
+            # else:
+            #     sub_avg = avg(sub_vals)
+            #     if sub_avg is not None:
+            #         result["Subordinates"] = sub_avg
+            #     oth_avg = avg(oth_vals)
+            #     if oth_avg is not None:
+            #         result["Others"] = oth_avg
+
+            self_avg = avg(groups.get("Self"))
+            if self_avg is not None:
+                result["Self"] = self_avg
+
+            mgr_avg = avg(groups.get("Manager"))
+            if mgr_avg is not None:
+                result["Manager"] = mgr_avg
+
+            if result:
+                out[question] = result
+
+        return out
+
+
+    @staticmethod
     def overall_avg_by_group(questionwise_data):
         grouped = defaultdict(list)
 
@@ -207,7 +285,7 @@ class CommonFunctions:
 
         return {
             "Subordinates": sub_strengths[:3],
-            "Manager": mgr_strengths[:3]
+            "Manager": mgr_strengths
         }
 
     @staticmethod
@@ -277,8 +355,9 @@ class CommonFunctions:
         question_clean = question.replace("_x000D_", "").strip()
         question_clean = re.sub(r"\s+", " ", question_clean)
         has_abc = re.search(
-            r'[Aa]\s*/\s*[Bb]\s*/\s*[Cc]|\(?[Aa]\s*/\s*[Bb]\s*/\s*[Cc]\)?',
-            question_clean
+            r'[Aa]\s*/\s*[Bb]\s*/\s*[Cc]|\(?[Aa]\s*/\s*[Bb]\s*/\s*[Cc]\)?|(?=.*[Aa]\))(?=.*[Bb]\))(?=.*[Cc]\))',
+            question_clean,
+            re.DOTALL
         )
         if not has_abc:
             return {}
@@ -297,7 +376,11 @@ class CommonFunctions:
         option_counts = defaultdict(int)
         
         for item in records:        
-            comment = item.get("Comment")
+            comment = None
+            if isinstance(item, dict):
+                comment = item.get("Comment")
+            else:
+                comment = item
             if not comment:
                 # print("Empty comment found, skipping...",item)
                 continue
@@ -345,18 +428,58 @@ class CommonFunctions:
 
 
     @staticmethod
-    def get_workplace_culture_data(data,question_type):
-        for question, records in data.items():
-            if  question_type in question.lower():
-                return records
-        return []
+    # def get_workplace_culture_data(data,question_type):
+    #     for question, records in data.items():
+    #         if  question_type in question.lower():
+    #             return records
+    #     return []
+
+    def get_workplace_culture_data(data, question_type):
+            keyword_map = {
+                "continue_doing": [
+                    "continue doing",
+                    "keep doing",
+                    "do more often",
+                    "continue",
+                    "keep doing more"
+                ],
+                "stop_doing": [
+                    "stop altogether",
+                    "stop doing",
+                    "stop",
+                    "avoid doing"
+                ],
+                "workplace_culture": [
+                    "workplace culture"
+                ],
+                "stand_out_leader": [
+                    "stand out as a leader",
+                    "stand out leader",
+                    "leader stand out"
+                ],
+                "action_area":[
+                    "differently, adjust or change"
+                ]
+            }
+            keywords = keyword_map.get(question_type, [question_type])
+            for question, records in data.items():
+                q = question.lower()
+                for keyword in keywords:
+                    if keyword in q:
+                        return records
+
+            return []
 
     @staticmethod
     def count_workplace_culture_words(records):
         word_counts = defaultdict(int)
 
         for item in records:
-            comment = item.get("Comment")
+            comment = None
+            if isinstance(item, dict):
+                comment = item.get("Comment")
+            else:
+                comment = item
             if not comment or comment == "nil":
                 continue
 
@@ -379,15 +502,22 @@ class CommonFunctions:
         comments = []
 
         for item in records:
-            if item.get("Rater Group") == "Self":
+            comment = None
+            rate_group=None
+            if isinstance(item, dict):
+                comment = item.get("Comment")
+                rate_group=item.get("Rater Group")
+            else:
+                comment = item
+            if rate_group == "Self" :
                 continue
 
-            comment = item.get("Comment")
+            # comment = item.get("Comment")
             # ignore_values = {"nil", "-", "no comment", "no comments", "na", "none"}
             if comment and comment.strip() :
                 comments.append(comment.strip())
 
-        return comments , records[0]['Question'] if records else ""
+        return comments 
 
 
    

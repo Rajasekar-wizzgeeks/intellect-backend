@@ -5,7 +5,7 @@ import numpy as np
 from Utils.common import CommonFunctions
 from Controllers.llmGenerationController import LLMGenerationController
 import asyncio
-import json
+import re
 
 
 
@@ -66,54 +66,116 @@ class FeedbackController:
             # file2_question_data = CommonFunctions.all_question_wise_data(comparision_file1)
             # file3_question_data = CommonFunctions.all_question_wise_data(comparision_file2)
             # comparision_data=CommonFunctions.find_comparision_year_data(file2_question_data,file3_question_data)
-            # print("comparision_data", comparision_data)
             name=data[0].get('Employee Name') or data[0].get('Name') or 'Employee Name'
-            right_culture = [
-                row for row in data if row.get("Name") == "Creating the Right Culture"
-            ]
-            leadership_style = [
-                row for row in data if row.get("Name") == "Leadership Style"
-            ]
-            leadership_staff_dev = [
-                row for row in data if row.get("Name") == "Leadership for Staff Performance & Development"
-            ]
-            educational_quality = [
-                row for row in data if row.get("Name") == "Educational Quality & Student Outcomes"
-            ]
-            engagement_with_management = [
-                row for row in data if row.get("Name") == "Engagement with Management"
-            ]
-            general = [
-                row for row in data if row.get("Name") == "General"
-            ]
+            if isinstance(data, list) and data and isinstance(data[0], dict) and "Name" in data[0]:            
+                right_culture = [
+                    row for row in data if row.get("Name") == "Creating the Right Culture"
+                ]
+                leadership_style = [
+                    row for row in data if row.get("Name") == "Leadership Style"
+                ]
+                leadership_staff_dev = [
+                    row for row in data if row.get("Name") == "Leadership for Staff Performance & Development"
+                ]
+                educational_quality = [
+                    row for row in data if row.get("Name") == "Educational Quality & Student Outcomes"
+                ]
+                engagement_with_management = [
+                    row for row in data if row.get("Name") == "Engagement with Management"
+                ]
+                general = [
+                    row for row in data if row.get("Name") == "General"
+                ]
+                right_culture_competency  = CommonFunctions.questionwise_avg_by_rate_group(right_culture)
+                leadership_style_competency = CommonFunctions.questionwise_avg_by_rate_group(leadership_style)
+                leadership_staff_dev_competency = CommonFunctions.questionwise_avg_by_rate_group(leadership_staff_dev)
+                educational_quality_competency = CommonFunctions.questionwise_avg_by_rate_group(educational_quality)
+                engagement_with_management_competency = CommonFunctions.questionwise_avg_by_rate_group(engagement_with_management)
+                
+                total_response=CommonFunctions.questionwise_find_total_response(right_culture)
 
-            right_culture_competency = CommonFunctions.questionwise_avg_by_rate_group(right_culture)
-            leadership_style_competency = CommonFunctions.questionwise_avg_by_rate_group(leadership_style)
-            leadership_staff_dev_competency = CommonFunctions.questionwise_avg_by_rate_group(leadership_staff_dev)
-            educational_quality_competency = CommonFunctions.questionwise_avg_by_rate_group(educational_quality)
-            engagement_with_management_competency = CommonFunctions.questionwise_avg_by_rate_group(engagement_with_management)
+                general_competency=CommonFunctions.grouped_question(general)
 
+            else:
+                def extract_category(column):
+                    match = re.match(r"\[(.*?)\]\s*(.*)", column)
+                    if match:
+                        return match.group(1), match.group(2)
+                    return None, column
+                category_data = {}
+                general_competency={}
+                columns = list(data[0].keys()) if isinstance(data, list) and data and isinstance(data[0], dict) else []
+                for col in columns:
+
+                    if "Average" in col:
+                        continue
+
+                    category, question = extract_category(col)
+                    if category:
+                        if category not in category_data:
+                            category_data[category] = []
+                        values_by_rate_group = {}
+                        for row in data:
+                            rate_group = row.get("Rate Group") or row.get("Rater Group") or "Unknown"
+                            values_by_rate_group.setdefault(rate_group, []).append(row.get(col))
+
+                        category_data[category].append({
+                            question: values_by_rate_group
+                        })
+                    else:
+                        exceptItem=[
+                            'Nominee Name','Employee Name','Employee ID','Nominee ID',
+                            'Rater Group','Rate Group','Rating','Comment','Declined Comment','Name','Question'
+                        ]
+                        if question not in exceptItem:
+                            general_competency[question] = [r.get(col) for r in data]
+                # print(general_competency)
+               
+                right_culture_competency = CommonFunctions.questionwise_avg_from_rating_lists(
+                    category_data.get('Creating the Right Culture', [])
+                )
+                leadership_style_competency = CommonFunctions.questionwise_avg_from_rating_lists(
+                    category_data.get('Leadership Style', [])
+                )
+                leadership_staff_dev_competency = CommonFunctions.questionwise_avg_from_rating_lists(
+                    category_data.get('Leadership for Staff Performance & Development', [])
+                )
+                educational_quality_competency = CommonFunctions.questionwise_avg_from_rating_lists(
+                    category_data.get('Educational Quality & Student Outcomes', [])
+                )
+                engagement_with_management_competency = CommonFunctions.questionwise_avg_from_rating_lists(
+                    category_data.get('Engagement with Management', [])
+                )
+
+                total_response = 0
+                # abc_questions = {}
+                # workplace_culture = []
+                # stand_out_leader_thing = []
+                # continue_doing_thing = []
+                # stop_altogether = []
+                # action_areas_thing_data = []
+
+
+            
             overall_questionwise_data = {}
-
             overall_questionwise_data.update(right_culture_competency)
             overall_questionwise_data.update(leadership_style_competency)
             overall_questionwise_data.update(leadership_staff_dev_competency)
             overall_questionwise_data.update(educational_quality_competency)
             overall_questionwise_data.update(engagement_with_management_competency)
 
-            general_competency=CommonFunctions.grouped_question(general)
             abc_questions=CommonFunctions.count_abc_responses(general_competency)
-            workplace_culture=CommonFunctions.get_workplace_culture_data(general_competency,"workplace culture")
-            stand_out_leader_thing=CommonFunctions.get_workplace_culture_data(general_competency,'stand out as a leader')
-            continue_doing_thing=CommonFunctions.get_workplace_culture_data(general_competency,'do more often or keep doing')
-            stop_altogether=CommonFunctions.get_workplace_culture_data(general_competency,'stop altogether')
-            action_areas_thing_data=CommonFunctions.get_workplace_culture_data(general_competency,'differently, adjust or change to improve')
+            workplace_culture=CommonFunctions.get_workplace_culture_data(general_competency,"workplace_culture")
+            stand_out_leader_thing=CommonFunctions.get_workplace_culture_data(general_competency,'stand_out_leader')
+            continue_doing_thing=CommonFunctions.get_workplace_culture_data(general_competency,'continue_doing')
+            stop_altogether=CommonFunctions.get_workplace_culture_data(general_competency,'stop_doing')
+            action_areas_thing_data=CommonFunctions.get_workplace_culture_data(general_competency,'action_area')
 
             workplace_culture_words=CommonFunctions.count_workplace_culture_words(workplace_culture)
             stand_out_leader_thing_words=CommonFunctions.count_workplace_culture_words(stand_out_leader_thing)
-            continue_doing_thing_words,continueQuestion=CommonFunctions.get_non_self_comments(continue_doing_thing)
-            stop_doing_thing_words,stopQuestion=CommonFunctions.get_non_self_comments(stop_altogether)
-            predominant_leader_thing,predominantQuestion=CommonFunctions.get_non_self_comments(stand_out_leader_thing)
+            continue_doing_thing_words=CommonFunctions.get_non_self_comments(continue_doing_thing)
+            stop_doing_thing_words=CommonFunctions.get_non_self_comments(stop_altogether)
+            predominant_leader_thing=CommonFunctions.get_non_self_comments(stand_out_leader_thing)
             action_areas_thing_data_comment=CommonFunctions.get_non_self_comments(action_areas_thing_data)
             action_areas_thing_data_extended = []
             action_areas_thing_data_extended.append(stand_out_leader_thing_words)
@@ -255,15 +317,39 @@ ABSOLUTE RULES (MANDATORY):
 6. One input comment string = one output comment string.
 7. If the exact same comment string appears multiple times in input, it MUST appear the same number of times in output.
 
-REMOVE ONLY PLACEHOLDER RESPONSES:
-Remove only meaningless responses if the entire comment is exactly (case-insensitive, after trimming spaces):
-nil
--
---
----
-none
-nothing
-no comment
+STEP 0 — REMOVE PLACEHOLDER RESPONSES (MANDATORY FIRST STEP)
+
+Before any other processing, examine every comment.
+
+Trim spaces and convert the comment to lowercase for checking.
+
+REMOVE the comment completely if it exactly matches ANY of the following:
+
+nil  
+na  
+n/a  
+-  
+--  
+---  
+none  
+nothing  
+no comment  
+no comments  
+no remarks  
+not applicable  
+
+Also remove the comment if it contains ONLY punctuation or dashes.
+
+Examples to remove:
+"-"
+"--"
+"---"
+"no comment"
+"NO COMMENT"
+"Nil"
+"na"
+
+These comments must NOT appear in the output.
 
 ----------------------------------
 
@@ -706,6 +792,7 @@ Output:
                 status_code=200,
                 content={
                     "name": name,
+                    "total_response":total_response,
                     "competency_summary_overall":{
                      'leadership_style': CommonFunctions.overall_avg_by_group(leadership_style_competency),
                      'educational_quality': CommonFunctions.overall_avg_by_group(educational_quality_competency),
@@ -721,13 +808,14 @@ Output:
                     "educational_quality_competency": educational_quality_competency,
                     "engagement_with_management_competency": engagement_with_management_competency,
                     "nominee_leadership":abc_questions,
+                    # "comparision_average":comparision_data,
                     "workplace_culture":workplace_culture_generated_words['structured']['workplace_culture'] if workplace_culture_generated_words['structured'] else [],
                     "predominant_leader_most_thing":stand_out_leader_thing_generate['structured']['stand_out_leader'] if stand_out_leader_thing_generate['structured'] else [],
                     "continue_doing_thing":analysis_general_continue_doing['structured']['continue_doing'] if analysis_general_continue_doing['structured'] else [],
                     "stop_doing_thing":analysis_general_stop_doing['structured']['stop_doing'] if analysis_general_stop_doing['structured'] else [],
                     "predominant_leader_thing":analysis_general_predominant_leader_thing['structured']['predominant_leader_thing'] if analysis_general_predominant_leader_thing['structured'] else [],
                     "action_areas_thing":action_areas_thing_llm_generate['structured']
-                
+                    
                 }
             )
                 
