@@ -285,6 +285,13 @@ class CommonFunctions:
             if result:
                 out[question] = result
 
+        out = dict(
+            sorted(
+                out.items(),
+                key=lambda x: (x[1].get("Subordinates") is None, x[1].get("Subordinates", 0)),
+                reverse=True
+            )
+        )
         return out
 
 
