@@ -92,18 +92,64 @@ class CommonFunctions:
     
     @staticmethod
     def questionwise_find_total_response(records):
+        if not records:
+            return {
+                "total_response": 0,
+                "response_by_group": {
+                    "Self": 0,
+                    "Manager": 0,
+                    "Subordinates": 0
+                }
+            }
+
         question_grouped = defaultdict(list)
         for row in records:
+            if not isinstance(row, dict):
+                continue
             question = row.get("Question")
             if not question:
                 continue
             question_grouped[question].append(row)
+
+        if not question_grouped:
+            return {
+                "total_response": 0,
+                "response_by_group": {
+                    "Self": 0,
+                    "Manager": 0,
+                    "Subordinates": 0
+                }
+            }
+
         first_question = next(iter(question_grouped))
-        length = len(question_grouped[first_question])
-        return length
+        question_records = question_grouped[first_question]
+
+        counts = {
+            "Self": 0,
+            "Manager": 0,
+            "Subordinates": 0
+        }
+
+        for row in question_records:
+            rg = row.get("Rater Group") or row.get("Rate Group")
+            if not rg:
+                continue
+            rg_norm = str(rg).strip().lower()
+            if rg_norm == "self":
+                counts["Self"] += 1
+            elif "manager" in rg_norm:
+                counts["Manager"] += 1
+            elif rg_norm == "subordinates" or rg_norm == "others":
+                counts["Subordinates"] += 1
+
+        return {
+            "total": len(question_records),
+            **counts
+        }
           
         
         
+            
             
     @staticmethod
     def questionwise_avg_by_rate_group(records):

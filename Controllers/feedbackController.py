@@ -93,7 +93,6 @@ class FeedbackController:
                 engagement_with_management_competency = CommonFunctions.questionwise_avg_by_rate_group(engagement_with_management)
                 
                 total_response=CommonFunctions.questionwise_find_total_response(right_culture)
-
                 general_competency=CommonFunctions.grouped_question(general)
 
             else:
@@ -129,7 +128,6 @@ class FeedbackController:
                         ]
                         if question not in exceptItem:
                             general_competency[question] = [r.get(col) for r in data]
-                # print(general_competency)
                
                 right_culture_competency = CommonFunctions.questionwise_avg_from_rating_lists(
                     category_data.get('Creating the Right Culture', [])
@@ -147,14 +145,30 @@ class FeedbackController:
                     category_data.get('Engagement with Management', [])
                 )
 
-                total_response = 0
-                # abc_questions = {}
-                # workplace_culture = []
-                # stand_out_leader_thing = []
-                # continue_doing_thing = []
-                # stop_altogether = []
-                # action_areas_thing_data = []
-
+                rate_groups = [
+                    (r.get('Rate Group') or r.get('Rater Group'))
+                    for r in data
+                    if isinstance(r, dict)
+                ]
+                rate_groups = [rg for rg in rate_groups if rg is not None]
+                total_response_count = len(rate_groups) if rate_groups else len(data)
+                response_by_group = {
+                    "Self": 0,
+                    "Manager": 0,
+                    "Subordinates": 0
+                }
+                for rg in rate_groups:
+                    rg_norm = str(rg).strip().lower()
+                    if rg_norm == "self":
+                        response_by_group["Self"] += 1
+                    elif "manager" in rg_norm:
+                        response_by_group["Manager"] += 1
+                    elif rg_norm == "subordinates" or rg_norm == "others":
+                        response_by_group["Subordinates"] += 1
+                total_response={
+                    "total": total_response_count,
+                    **response_by_group
+                }
 
             
             overall_questionwise_data = {}
@@ -304,224 +318,219 @@ INPUT:
 You will receive a JSON array (list) of comment strings.
 
 OBJECTIVE:
-Return EVERY valid comment exactly as written, but reordered with STRICT two-phase ordering:
+Return EVERY valid comment exactly as written, but reordered with STRICT three-phase ordering:
+
 1) NEGATIVE comments first (frequency-grouped).
-2) After ALL negative comments are finished, output ALL OTHER comments (frequency-grouped).
+2) After ALL negative comments, output ALL OTHER comments (frequency-grouped).
+3) AFTER ALL valid comments, append a final line summarizing placeholder responses with frequency counts.
 
 ABSOLUTE RULES (MANDATORY):
+
 1. Do NOT merge, combine, collapse, or deduplicate comments.
 2. Do NOT rewrite, rephrase, expand, shorten, translate, or correct grammar.
-3. Do NOT summarize.
+3. Do NOT summarize valid comments.
 4. Do NOT add new comments.
 5. Do NOT skip any valid comment.
 6. One input comment string = one output comment string.
 7. If the exact same comment string appears multiple times in input, it MUST appear the same number of times in output.
 
-STEP 0 — REMOVE PLACEHOLDER RESPONSES (MANDATORY FIRST STEP)
+----------------------------------
 
-Before any other processing, examine every comment.
+STEP 0 — IDENTIFY PLACEHOLDER / INVALID RESPONSES
 
-Trim spaces and convert the comment to lowercase for checking.
+Before processing comments, examine every comment.
 
-REMOVE the comment completely if it exactly matches ANY of the following:
+Trim spaces and convert to lowercase for checking.
 
-nil  
-na  
-n/a  
--  
---  
----  
-none  
-nothing  
-no comment  
-no comments  
-no remarks  
-not applicable  
+A comment is considered a PLACEHOLDER if it matches or clearly represents:
 
-Also remove the comment if it contains ONLY punctuation or dashes.
+nil
+na
+n/a
+-
+--
+---
+none
+nothing
+no comment
+no comments
+no remarks
+not applicable
+nothing specific
+nothing like that
+nothing to mention
+no complaints
 
-Examples to remove:
+Also treat comments containing ONLY punctuation or dashes as placeholders.
+
+Examples:
 "-"
 "--"
 "---"
-"no comment"
-"NO COMMENT"
 "Nil"
-"na"
+"NA"
+"no comment"
+"Nothing"
+"nothing specific"
 
-These comments must NOT appear in the output.
+----------------------------------
+
+PLACEHOLDER HANDLING RULES
+
+1. DO NOT include placeholder comments in the main ordered list.
+2. Instead, count how many times each placeholder meaning appears.
+
+Normalize placeholders into these summary groups:
+
+Nothing
+Nil
+None
+NA
+No complaints
+Nothing Specific
+Nothing like that
+Nothing to mention
+-
+
+Count occurrences of each.
+
+At the VERY END of the output, append ONE final summary string showing these counts.
+
+FORMAT example:
+
+"Nothing (7) / Nil (4) / None (3) / - (2) / NA (1) / No complaints (1) / Nothing Specific (1) / Nothing like that (1) / Nothing to mention (1)"
+
+Only include groups that appear at least once.
 
 ----------------------------------
 
 MANDATORY PROCESSING ALGORITHM
-Striclty followed steps one by one in order.
-You MUST follow the steps below in exact order.
 
-STEP 1 — Separate Comments
+Follow steps exactly in order.
 
-Read every comment and classify it into one of two groups:
+----------------------------------
 
-Group A: Negative comments  
-Examples include:
+STEP 1 — Separate Valid Comments
+
+Ignore placeholders identified earlier.
+
+Classify remaining comments into:
+
+Group A: Negative comments
+Examples:
 - complaints
 - criticism
 - behaviour someone should stop
 - dissatisfaction
-- negative actions
 
 Group B: Other comments
-These include:
-- neutral comments
+Examples:
+- neutral
 - suggestions
-- positive comments
-- unclear comments
+- positive
+- unclear
 
 ----------------------------------
 
 STEP 2 — Frequency Ordering for NEGATIVE Comments
 
-This step is REQUIRED.
-
 1. Analyze ALL comments in Group A.
-2. Identify comments that share the SAME or VERY SIMILAR meaning.
-3. Create meaning groups ONLY for counting frequency.
+2. Identify comments with SAME or VERY SIMILAR meaning.
+3. Create meaning groups ONLY for frequency counting.
 
 IMPORTANT:
-Meaning groups are ONLY for calculating frequency.
-You MUST still output each original comment separately.
-
-Example meaning groups (example only):
-Group 1 → fairness / partiality  
-Group 2 → shouting / anger  
-Group 3 → communication issues  
+Meaning groups are ONLY used to count frequency.
+Original comments must remain unchanged.
 
 4. Count how many comments belong to each meaning group.
-
 5. Sort meaning groups by frequency (highest → lowest).
 
-6. Output comments in this order:
+OUTPUT ORDER:
 
-First → all comments from the most frequent meaning group  
-Second → all comments from the second most frequent meaning group  
-Third → all comments from the third most frequent meaning group  
+First → comments from the most frequent meaning group
+Second → comments from the second most frequent group
+Third → comments from the third most frequent group
 
-Continue until ALL negative comments are output.
+Continue until ALL negative comments are listed.
 
-STABILITY RULE (MANDATORY):
-- Within the SAME meaning group, keep the original relative order from the input list.
+STABILITY RULE:
+Within the same meaning group, preserve original input order.
 
-TIE RULE (MANDATORY):
-- If two meaning groups have the same frequency, order the meaning groups by which meaning group appears earliest in the input list.
+TIE RULE:
+If two groups have equal frequency, the group appearing earlier in the input list comes first.
 
 ----------------------------------
 
 STEP 3 — Frequency Ordering for OTHER Comments
 
-After ALL negative comments are finished:
+After finishing ALL negative comments:
 
 1. Take all comments in Group B.
-2. Again group them by similar meaning ONLY to count frequency.
-3. Count how many comments belong to each meaning group.
+2. Group by similar meaning for counting.
+3. Count frequencies.
 4. Sort meaning groups by frequency (highest → lowest).
 
-5. Output comments in this order:
-
-First → comments from the most frequent meaning group  
-Second → comments from the second most frequent meaning group  
-Third → comments from the third most frequent meaning group  
-
-Continue until ALL comments are listed.
+Output comments following the same stability and tie rules.
 
 ----------------------------------
 
 TEXT FORMATTING RULES
 
-1. If a comment contains a clearly negative phrase, highlight ONLY the negative phrase using:
+1. If a comment contains a clearly negative phrase, highlight ONLY that phrase using:
 
 <span style="color:red"><strong>negative phrase</strong></span>
 
 2. Highlight ONLY the exact words already present in the sentence.
-
-3. Apply Markdown bold (**text**) ONLY to clearly positive traits already written in the sentence.
-
+3. Apply Markdown bold (**text**) ONLY to clearly positive traits already written.
 4. Do NOT invent new words.
-
-5. Do NOT bold the entire sentence unless the full sentence is purely a positive trait.
-
+5. Do NOT bold entire sentences unless the whole sentence is purely positive.
 6. Do NOT change wording.
 
 ----------------------------------
 
-OUTPUT FORMAT
+CRITICAL ANTI-MERGE RULE
 
-Return ONLY valid JSON with exactly this shape:
+Meaning groups are ONLY for counting frequency.
+
+You MUST NEVER merge comments.
+
+Example:
+
+Input:
+"Do not shout at staff"
+"Stop shouting in public"
+
+CORRECT OUTPUT:
+"Do not shout at staff"
+"Stop shouting in public"
+
+INCORRECT:
+"Stop shouting at staff in public"
+
+----------------------------------
+
+FINAL OUTPUT FORMAT
+
+Return ONLY valid JSON with exactly this structure:
+
 {
-  "stop_doing": ["comment 1", "comment 2", "comment 3"]
+  "stop_doing": [
+    "comment 1",
+    "comment 2",
+    "comment 3",
+    "Nothing (7) / Nil (4) / None (3) / - (2) / NA (1)"
+  ]
 }
 
 ----------------------------------
 
-FINAL OUTPUT RULES
-1. The "stop_doing" array MUST contain all kept comments in the correct order.
-2. ALL NEGATIVE comments must appear before ANY OTHER comment.
-3. Within NEGATIVE comments, order by meaning-group frequency (highest to lowest), with stability and tie rules applied.
-4. After all NEGATIVE comments, output ALL OTHER comments ordered by meaning-group frequency (highest to lowest), with the same stability and tie rules.
-5. Output ONLY the JSON object. No extra text.
-"""
-            predominant_prompt = """
-You are a STRICT Educational Feedback Formatter.
+FINAL RULES
 
-OBJECTIVE:
-Return ONLY clearly positive leadership qualities or traits for predominant_leader_thing.
-
-FILTERING RULES:
-Keep a comment ONLY if it clearly expresses:
-- Positive leadership quality
-- Strong character trait
-- Appreciation of leadership style
-- Supportive or fair leadership behavior
-- Strength in management or guidance
-
-REMOVE completely:
-- Negative comments
-- Complaints
-- Criticism
-- Neutral statements
-- Advisory suggestions without clear appreciation
-- Mixed sentiment (positive + negative together)
-- "-", "---"
-- "Nil", "NIL"
-- "no comment", "no comments"
-- "nothing"
-- Empty text
-- Anything unclear in sentiment
-
-CORE RULE:
-INPUT COMMENT = OUTPUT COMMENT.
-Do NOT rewrite, rephrase, expand, shorten, or add words.
-Do NOT change sentence structure.
-Do NOT add prefixes like "Continue" or any other words.
-
-ALLOWED:
-- Fix very minor grammar or spacing issues only.
-- Apply Markdown bold (**text**) ONLY to clearly positive leadership traits already written in the sentence.
-- Do NOT invent new words for bolding.
-- Do NOT bold the entire sentence unless the full sentence is purely a positive leadership trait.
-
-IMPORTANT:
-- If a comment is not clearly positive → REMOVE it completely.
-- One valid input comment → exactly one output comment.
-- Preserve original wording.
-- Preserve order.
-
-OUTPUT:
-Return ONLY valid JSON:
-{
-  "predominant_leader_thing": [string]
-}
-
-No explanations.
-Only JSON.
+1. All NEGATIVE comments must appear first.
+2. Then ALL OTHER comments.
+3. Placeholder summary MUST appear as the LAST item in the array.
+4. Do NOT output explanations.
+5. Output ONLY JSON.
 """
             stand_out_leader_simple_prompt = """
 You are a leadership feedback processor.
@@ -784,7 +793,8 @@ Output:
             analysis_general_predominant_leader_thing, \
             action_areas_thing_llm_generate, \
             stand_out_leader_thing_generate, \
-            workplace_culture_generated_words = await run_parallel_analysis()     
+            workplace_culture_generated_words = await run_parallel_analysis()   
+            # print(stop_doing_thing_words)  
             # analysis_general_stop_doing=controller.analysis_comment_to_generate(stop_doing_thing_words,stop_prompt,stop_feedback_schema)
             # action_areas_thing_llm_generate = controller.generate_action_areas(action_areas_thing_data_extended)
 
