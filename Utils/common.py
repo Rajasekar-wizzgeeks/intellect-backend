@@ -167,8 +167,24 @@ class CommonFunctions:
             for item in rows:
                 group = item.get("Rater Group")
                 value = item.get("Rating")
+
+                if group is None:
+                    continue
+
+                group_norm = str(group).strip().lower()
+                if group_norm == "self":
+                    group = "Self"
+                elif "manager" in group_norm:
+                    group = "Manager"
+                elif group_norm == "subordinates":
+                    group = "Subordinates"
+                elif group_norm == "others":
+                    group = "Others"
+                else:
+                    group = str(group).strip()
+
                 rater_groups_set.add(group)
-                if group is None or value is None:
+                if value is None:
                     continue
                 
                 grouped[group].append(value)
@@ -190,23 +206,18 @@ class CommonFunctions:
                 rater_groups_set.discard("Subordinates")
                 rater_groups_set.discard("Others")
 
-            l1_vals = grouped.get("L1 Manager", [])
-            l2_vals = grouped.get("L2 Manager", [])
-
-            combined_mgr = l1_vals + l2_vals
-            if combined_mgr:
+            mgr_vals = grouped.get("Manager", [])
+            if mgr_vals:
                 avg_result["Manager"] = round(
-                    sum(combined_mgr) / len(combined_mgr), 2
+                    sum(mgr_vals) / len(mgr_vals), 2
                 )
-                rater_groups_set.discard("L1 Manager")
-                rater_groups_set.discard("L2 Manager")
-            elif "L1 Manager" in rater_groups_set or "L2 Manager" in rater_groups_set:
+                rater_groups_set.discard("Manager")
+            elif "Manager" in rater_groups_set:
                 avg_result["Manager"] = None
-                rater_groups_set.discard("L1 Manager")
-                rater_groups_set.discard("L2 Manager")
+                rater_groups_set.discard("Manager")
 
             for group, values in grouped.items():
-                if group in ["Subordinates", "Others", "L1 Manager", "L2 Manager"]:
+                if group in ["Subordinates", "Others", "Manager"]:
                     continue
                 
                 avg_result[group] = round(sum(values) / len(values), 2)
@@ -259,9 +270,32 @@ class CommonFunctions:
             if not isinstance(groups, dict):
                 continue
 
+            normalized_groups = {}
+            for group_key, group_values in groups.items():
+                group_norm = str(group_key).strip().lower()
+                if group_norm == "self":
+                    norm_key = "Self"
+                elif "manager" in group_norm:
+                    norm_key = "Manager"
+                elif group_norm == "subordinates":
+                    norm_key = "Subordinates"
+                elif group_norm == "others":
+                    norm_key = "Others"
+                else:
+                    continue
+
+                if isinstance(group_values, list):
+                    values_list = group_values
+                elif group_values is None:
+                    values_list = []
+                else:
+                    values_list = [group_values]
+
+                normalized_groups.setdefault(norm_key, []).extend(values_list)
+
             result = {}
-            sub_vals = list(groups.get("Subordinates") or [])
-            oth_vals = list(groups.get("Others") or [])
+            sub_vals = list(normalized_groups.get("Subordinates") or [])
+            oth_vals = list(normalized_groups.get("Others") or [])
             if merge_others_into_subordinates and (sub_vals or oth_vals):
                 sub_avg = avg(sub_vals + oth_vals)
                 if sub_avg is not None:
@@ -274,11 +308,11 @@ class CommonFunctions:
             #     if oth_avg is not None:
             #         result["Others"] = oth_avg
 
-            self_avg = avg(groups.get("Self"))
+            self_avg = avg(normalized_groups.get("Self"))
             if self_avg is not None:
                 result["Self"] = self_avg
 
-            mgr_avg = avg(groups.get("Manager"))
+            mgr_avg = avg(normalized_groups.get("Manager"))
             if mgr_avg is not None:
                 result["Manager"] = mgr_avg
 
@@ -433,7 +467,7 @@ class CommonFunctions:
             if isinstance(item, dict):
                 comment = item.get("Comment")
             else:
-                comment = item
+                comment = str(item)
             if not comment:
                 # print("Empty comment found, skipping...",item)
                 continue
