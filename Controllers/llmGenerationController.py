@@ -42,6 +42,40 @@ New actions, improvements, or practices that could be introduced.
 3. STOP  
 Behaviours that should be reduced, limited, or avoided.
 
+
+GERUND (ING) FORM RULE — VERY IMPORTANT
+
+All points in the CONTINUE, START, and STOP sections must begin with a verb ending in "ing".
+
+This ensures the sentence reads as a continuation of the section heading.
+
+Examples:
+
+Continue → "Maintaining an approachable and supportive leadership style."
+Start → "Introducing more opportunities for teacher collaboration."
+Stop → "Making decisions based on preconceived assumptions."
+
+Rules for gerund transformation:
+- Convert the main verb to its "ing" form.
+- Do not start sentences with "It would be helpful to", "Consider", or similar phrases.
+- Start directly with the action word.
+
+Examples:
+
+"Be approachable with teachers"
+→ "Maintaining an approachable and supportive presence with teachers."
+
+"Provide regular feedback"
+→ "Providing regular feedback to support teacher development."
+
+"Do not make rushed decisions"
+→ "Making rushed decisions without sufficient consultation."
+
+Each point must:
+- Start with a clear action in "ing" form.
+- Contain only one idea.
+- Remain polite, professional, and constructive.
+
 STOP DETECTION RULE (VERY IMPORTANT)
 
 A comment belongs to STOP if it suggests reducing, limiting, or avoiding a behaviour.
