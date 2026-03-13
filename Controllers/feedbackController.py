@@ -62,10 +62,10 @@ class FeedbackController:
                 )
             
             
-             
-            # file2_question_data = CommonFunctions.all_question_wise_data(comparision_file1)
-            # file3_question_data = CommonFunctions.all_question_wise_data(comparision_file2)
-            # comparision_data=CommonFunctions.find_comparision_year_data(file2_question_data,file3_question_data)
+            if comparision_file1 and comparision_file2:
+                file2_question_data = CommonFunctions.all_question_wise_data(comparision_file1)
+                file3_question_data = CommonFunctions.all_question_wise_data(comparision_file2)
+                comparision_data=CommonFunctions.find_comparision_year_data(file2_question_data,file3_question_data)
             name=data[0].get('Employee Name') or data[0].get('Name') or 'Employee Name'
             if isinstance(data, list) and data and isinstance(data[0], dict) and "Name" in data[0]:            
                 right_culture = [
@@ -794,7 +794,7 @@ Output:
             action_areas_thing_llm_generate, \
             stand_out_leader_thing_generate, \
             workplace_culture_generated_words = await run_parallel_analysis()   
-            # print(stop_doing_thing_words)  
+            # print(comparision_data)  
             # analysis_general_stop_doing=controller.analysis_comment_to_generate(stop_doing_thing_words,stop_prompt,stop_feedback_schema)
             # action_areas_thing_llm_generate = controller.generate_action_areas(action_areas_thing_data_extended)
 
@@ -818,7 +818,7 @@ Output:
                     "educational_quality_competency": educational_quality_competency,
                     "engagement_with_management_competency": engagement_with_management_competency,
                     "nominee_leadership":abc_questions,
-                    # "comparision_average":comparision_data,
+                    "comparision_average":comparision_data,
                     "workplace_culture":workplace_culture_generated_words['structured']['workplace_culture'] if workplace_culture_generated_words['structured'] else [],
                     "predominant_leader_most_thing":stand_out_leader_thing_generate['structured']['stand_out_leader'] if stand_out_leader_thing_generate['structured'] else [],
                     "continue_doing_thing":analysis_general_continue_doing['structured']['continue_doing'] if analysis_general_continue_doing['structured'] else [],

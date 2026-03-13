@@ -27,28 +27,45 @@ class CommonFunctions:
     
     @staticmethod
     def all_question_wise_data(file1_records):
-        right_culture = [
-            row for row in file1_records if row.get("Name") == "Creating the Right Culture"
-        ]
-        leadership_style = [
-            row for row in file1_records if row.get("Name") == "Leadership Style"
-        ]
-        leadership_staff_dev = [
-            row for row in file1_records if row.get("Name") == "Leadership for Staff Performance & Development"
-        ]
-        educational_quality = [
-            row for row in file1_records if row.get("Name") == "Educational Quality & Student Outcomes"
-        ]
-        engagement_with_management = [
-            row for row in file1_records if row.get("Name") == "Engagement with Management"
-        ]
+        if isinstance(file1_records, list) and file1_records and isinstance(file1_records[0], dict) and "Name" in file1_records[0]:
+            right_culture = [
+                row for row in file1_records if row.get("Name") == "Creating the Right Culture"
+            ]
+            leadership_style = [
+                row for row in file1_records if row.get("Name") == "Leadership Style"
+            ]
+            leadership_staff_dev = [
+                row for row in file1_records if row.get("Name") == "Leadership for Staff Performance & Development"
+            ]
+            educational_quality = [
+                row for row in file1_records if row.get("Name") == "Educational Quality & Student Outcomes"
+            ]
+            engagement_with_management = [
+                row for row in file1_records if row.get("Name") == "Engagement with Management"
+            ]
 
-        right_culture_questionwise = CommonFunctions.questionwise_avg_by_rate_group(right_culture)
-        leadership_style_questionwise = CommonFunctions.questionwise_avg_by_rate_group(leadership_style)
-        leadership_staff_dev_questionwise = CommonFunctions.questionwise_avg_by_rate_group(leadership_staff_dev)
-        educational_quality_questionwise = CommonFunctions.questionwise_avg_by_rate_group(educational_quality)
-        engagement_with_management_questionwise = CommonFunctions.questionwise_avg_by_rate_group(engagement_with_management)
-
+            right_culture_questionwise = CommonFunctions.questionwise_avg_by_rate_group(right_culture)
+            leadership_style_questionwise = CommonFunctions.questionwise_avg_by_rate_group(leadership_style)
+            leadership_staff_dev_questionwise = CommonFunctions.questionwise_avg_by_rate_group(leadership_staff_dev)
+            educational_quality_questionwise = CommonFunctions.questionwise_avg_by_rate_group(educational_quality)
+            engagement_with_management_questionwise = CommonFunctions.questionwise_avg_by_rate_group(engagement_with_management)
+        else:
+            category_data = CommonFunctions.categories_google_excel_sheet(file1_records)
+            right_culture_questionwise = CommonFunctions.questionwise_avg_from_rating_lists(
+                    category_data.get('Creating the Right Culture', [])
+                )
+            leadership_style_questionwise = CommonFunctions.questionwise_avg_from_rating_lists(
+                category_data.get('Leadership Style', [])
+            )
+            leadership_staff_dev_questionwise = CommonFunctions.questionwise_avg_from_rating_lists(
+                category_data.get('Leadership for Staff Performance & Development', [])
+            )
+            educational_quality_questionwise = CommonFunctions.questionwise_avg_from_rating_lists(
+                category_data.get('Educational Quality & Student Outcomes', [])
+            )
+            engagement_with_management_questionwise = CommonFunctions.questionwise_avg_from_rating_lists(
+                category_data.get('Engagement with Management', [])
+            )
         combined_questionwise = {}
         combined_questionwise.update(right_culture_questionwise)
         combined_questionwise.update(leadership_style_questionwise)
@@ -58,6 +75,36 @@ class CommonFunctions:
 
         return combined_questionwise
     
+
+    @staticmethod
+    def categories_google_excel_sheet(file1_records):
+        def extract_category(column):
+                    match = re.match(r"\[(.*?)\]\s*(.*)", column)
+                    if match:
+                        return match.group(1), match.group(2)
+                    return None, column
+        category_data = {}
+        columns = list(file1_records[0].keys()) if isinstance(file1_records, list) and file1_records and isinstance(file1_records[0], dict) else []
+        for col in columns:
+            if "Average" in col:
+                continue
+            category, question = extract_category(col)
+            if category:
+                if category not in category_data:
+                    category_data[category] = []
+                values_by_rate_group = {}
+                for row in file1_records:
+                    rate_group = row.get("Rate Group") or row.get("Rater Group") or "Unknown"
+                    values_by_rate_group.setdefault(rate_group, []).append(row.get(col))
+
+                category_data[category].append({
+                    question: values_by_rate_group
+                })
+        
+        return category_data
+            
+
+
     @staticmethod
     def find_comparision_year_data(record1, record2):
         record1 = record1 or {}
