@@ -61,7 +61,7 @@ class FeedbackController:
                     content={"message": "No data found in uploaded file."}
                 )
             
-            
+            comparision_data={}
             if comparision_file1 and comparision_file2:
                 file2_question_data = CommonFunctions.all_question_wise_data(comparision_file1)
                 file3_question_data = CommonFunctions.all_question_wise_data(comparision_file2)
