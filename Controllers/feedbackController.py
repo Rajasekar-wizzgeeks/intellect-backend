@@ -43,15 +43,24 @@ class FeedbackController:
             file1_data = read_excel_records(files[0])
             comparision_file1=[]
             comparision_file2=[]
-            if len(files) > 1:
+            comparision_data={}
+            if len(files) == 2:
                 file2_data = read_excel_records(files[1])
                 comparision_file1 = file1_data
                 comparision_file2 = file2_data
-            if len(files) > 2:
+                file2_question_data = CommonFunctions.all_question_wise_data(comparision_file1)
+                file3_question_data = CommonFunctions.all_question_wise_data(comparision_file2)
+                comparision_data=CommonFunctions.find_comparision_year_data(file2_question_data,file3_question_data)
+
+            if len(files) == 3:
                 file2_data = read_excel_records(files[1])
                 file3_data = read_excel_records(files[2])
                 comparision_file1 = file2_data
                 comparision_file2 = file3_data
+                file1_question_data = CommonFunctions.all_question_wise_data(file1_data)
+                file2_question_data = CommonFunctions.all_question_wise_data(comparision_file1)
+                file3_question_data = CommonFunctions.all_question_wise_data(comparision_file2)
+                comparision_data=CommonFunctions.find_comparision_multi_year_data(file1_question_data,file2_question_data,file3_question_data)
 
             data = file1_data
             
@@ -61,11 +70,7 @@ class FeedbackController:
                     content={"message": "No data found in uploaded file."}
                 )
             
-            comparision_data={}
-            if comparision_file1 and comparision_file2:
-                file2_question_data = CommonFunctions.all_question_wise_data(comparision_file1)
-                file3_question_data = CommonFunctions.all_question_wise_data(comparision_file2)
-                comparision_data=CommonFunctions.find_comparision_year_data(file2_question_data,file3_question_data)
+
             name=data[0].get('Employee Name') or data[0].get('Name') or 'Employee Name'
             if isinstance(data, list) and data and isinstance(data[0], dict) and "Name" in data[0]:            
                 right_culture = [
@@ -151,7 +156,7 @@ class FeedbackController:
                     if isinstance(r, dict)
                 ]
                 rate_groups = [rg for rg in rate_groups if rg is not None]
-                total_response_count = len(rate_groups) if rate_groups else len(data)
+                # total_response_count = len(rate_groups) if rate_groups else len(data)
                 response_by_group = {
                     "Self": 0,
                     "Manager": 0,
@@ -159,12 +164,16 @@ class FeedbackController:
                 }
                 for rg in rate_groups:
                     rg_norm = str(rg).strip().lower()
+                    # rv=row.get('Rating')
+                    # if not rv:
+                    #     continue
                     if rg_norm == "self":
                         response_by_group["Self"] += 1
                     elif "manager" in rg_norm:
                         response_by_group["Manager"] += 1
                     elif rg_norm == "subordinates" or rg_norm == "others":
                         response_by_group["Subordinates"] += 1
+                total_response_count = response_by_group["Self"] + response_by_group["Manager"] + response_by_group["Subordinates"]
                 total_response={
                     "total": total_response_count,
                     **response_by_group
@@ -794,7 +803,7 @@ Output:
             action_areas_thing_llm_generate, \
             stand_out_leader_thing_generate, \
             workplace_culture_generated_words = await run_parallel_analysis()   
-            # print(comparision_data)  
+            # print("Comparision Data:", comparision_data)  
             # analysis_general_stop_doing=controller.analysis_comment_to_generate(stop_doing_thing_words,stop_prompt,stop_feedback_schema)
             # action_areas_thing_llm_generate = controller.generate_action_areas(action_areas_thing_data_extended)
 
@@ -810,6 +819,7 @@ Output:
                      'right_culture': CommonFunctions.overall_avg_by_group(right_culture_competency),
                      'engagement_with_management': CommonFunctions.overall_avg_by_group(engagement_with_management_competency)
                     },
+                 
                     "strengths": CommonFunctions.find_strengths_separately(overall_questionwise_data),
                     "area_of_improvement": CommonFunctions.find_area_of_improvement_separately(overall_questionwise_data),
                     "right_culture_competency": right_culture_competency,
@@ -825,7 +835,6 @@ Output:
                     "stop_doing_thing":analysis_general_stop_doing['structured']['stop_doing'] if analysis_general_stop_doing['structured'] else [],
                     "predominant_leader_thing":analysis_general_predominant_leader_thing['structured']['predominant_leader_thing'] if analysis_general_predominant_leader_thing['structured'] else [],
                     "action_areas_thing":action_areas_thing_llm_generate['structured']
-                    
                 }
             )
                 

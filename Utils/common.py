@@ -129,11 +129,53 @@ class CommonFunctions:
             if abs(team_diff) <= threshold:
                 continue
 
-            diff_data[question] = team_diff
+            diff_data[question] = {"team_diff1": team_diff}
 
         sorted_diff_data = dict(
-            sorted(diff_data.items(), key=lambda item: item[1], reverse=True)
+            sorted(diff_data.items(), key=lambda item: item[1].get('team_diff1', 0), reverse=True)
         )
+        return sorted_diff_data
+    
+
+    @staticmethod
+    def find_comparision_multi_year_data(record1, record2,record3):
+        record1 = record1 or {}
+        record2 = record2 or {}
+        record3 = record3 or {}
+
+        all_questions = set(record1.keys()) | set(record2.keys()) | set(record3.keys())
+        diff_data = {}
+
+        team_score_key = "Subordinates"
+        threshold = 0.1
+
+        for question in all_questions:
+            groups1 = record1.get(question) or {}
+            groups2 = record2.get(question) or {}
+            groups3 = record3.get(question) or {}
+
+            v1 = groups1.get(team_score_key)
+            v2 = groups2.get(team_score_key)
+            v3 = groups3.get(team_score_key)
+            if v1 is None or v2 is None or v3 is None:
+                continue
+
+            team_diff1 = round(v1 - v2, 2)
+            team_diff2 = round(v2 - v3, 2)
+            if abs(team_diff1) <= threshold or abs(team_diff2) <= threshold:
+                continue
+            diff_data[question] = {
+                "team_diff1": team_diff1,
+                "team_diff2": team_diff2
+            }
+
+        sorted_diff_data = dict(
+                sorted(
+                    diff_data.items(),
+                    key=lambda item: item[1].get("team_diff1", 0),
+                    reverse=True
+                )
+            )
         return sorted_diff_data
     
     
@@ -188,9 +230,9 @@ class CommonFunctions:
                 counts["Manager"] += 1
             elif rg_norm == "subordinates" or rg_norm == "others":
                 counts["Subordinates"] += 1
-
+        total=counts["Manager"]+counts["Subordinates"]+counts["Self"]
         return {
-            "total": len(question_records),
+            "total": total,
             **counts
         }
           
