@@ -238,8 +238,20 @@ class CommonFunctions:
 
             avg_result = {}
 
-            sub_vals = grouped.get("Subordinates", [])
-            oth_vals = grouped.get("Others", [])
+            def filter_numeric(values):
+                numeric_values = []
+                for v in values:
+                    if isinstance(v, (int, float)):
+                        numeric_values.append(v)
+                    elif isinstance(v, str):
+                        try:
+                            numeric_values.append(float(v))
+                        except (ValueError, TypeError):
+                            continue
+                return numeric_values
+
+            sub_vals = filter_numeric(grouped.get("Subordinates", []))
+            oth_vals = filter_numeric(grouped.get("Others", []))
 
             combined_people = sub_vals + oth_vals
             if combined_people:
@@ -253,7 +265,7 @@ class CommonFunctions:
                 rater_groups_set.discard("Subordinates")
                 rater_groups_set.discard("Others")
 
-            mgr_vals = grouped.get("Manager", [])
+            mgr_vals = filter_numeric(grouped.get("Manager", []))
             if mgr_vals:
                 avg_result["Manager"] = round(
                     sum(mgr_vals) / len(mgr_vals), 2
@@ -267,7 +279,9 @@ class CommonFunctions:
                 if group in ["Subordinates", "Others", "Manager"]:
                     continue
                 
-                avg_result[group] = round(sum(values) / len(values), 2)
+                numeric_vals = filter_numeric(values)
+                if numeric_vals:
+                    avg_result[group] = round(sum(numeric_vals) / len(numeric_vals), 2)
 
             for group in rater_groups_set:
                 if group not in avg_result:
@@ -614,6 +628,10 @@ class CommonFunctions:
                 comment = item.get("Comment")
             else:
                 comment = item
+            
+            if comment is not None and not isinstance(comment, str):
+                comment = str(comment)
+
             if not comment or comment == "nil":
                 continue
 
@@ -640,9 +658,13 @@ class CommonFunctions:
             rate_group=None
             if isinstance(item, dict):
                 comment = item.get("Comment")
-                rate_group=item.get("Rater Group")
+                rate_group = item.get("Rater Group")
             else:
                 comment = item
+            
+            if comment is not None and not isinstance(comment, str):
+                comment = str(comment)
+
             if rate_group == "Self" :
                 continue
 
