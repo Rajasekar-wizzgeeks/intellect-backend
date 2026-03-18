@@ -1,4 +1,3 @@
-
 from collections import defaultdict
 import re
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -110,6 +109,28 @@ class CommonFunctions:
         record1 = record1 or {}
         record2 = record2 or {}
 
+        alias_map = {
+            "Helps to resolve issues/remove roadblocks in the job": "Helps in resolving issues/remove roadblocks in the job",
+            "Helps in resolving issues/remove roadblocks in the job": "Helps in resolving issues/remove roadblocks in the job",
+            "Works with teachers to set high academic standards": "Works with teachers to set high academic standards",
+            "Works with teachers to set high academic standards that rise above minimum expectations": "Works with teachers to set high academic standards",
+            "Has created a work culture that recognizes and rewards merit": "Has created a work culture that rewards merit",
+            "Has created a work culture that rewards merit": "Has created a work culture that rewards merit",
+        }
+
+        def remap_record(record):
+            new_record = {}
+            for q, val in record.items():
+                canon_q = alias_map.get(q, q)
+                if canon_q not in new_record:
+                    new_record[canon_q] = {}
+                for k, v in (val or {}).items():
+                    new_record[canon_q][k] = v
+            return new_record
+
+        record1 = remap_record(record1)
+        record2 = remap_record(record2)
+
         all_questions = set(record1.keys()) | set(record2.keys())
         diff_data = {}
 
@@ -142,6 +163,29 @@ class CommonFunctions:
         record1 = record1 or {}
         record2 = record2 or {}
         record3 = record3 or {}
+
+        alias_map = {
+            "Helps to resolve issues/remove roadblocks in the job": "Helps in resolving issues/remove roadblocks in the job",
+            "Helps in resolving issues/remove roadblocks in the job": "Helps in resolving issues/remove roadblocks in the job",
+            "Works with teachers to set high academic standards": "Works with teachers to set high academic standards",
+            "Works with teachers to set high academic standards that rise above minimum expectations": "Works with teachers to set high academic standards",
+            "Has created a work culture that recognizes and rewards merit": "Has created a work culture that rewards merit",
+            "Has created a work culture that rewards merit": "Has created a work culture that rewards merit",
+        }
+
+        def remap_record(record):
+            new_record = {}
+            for q, val in record.items():
+                canon_q = alias_map.get(q, q)
+                if canon_q not in new_record:
+                    new_record[canon_q] = {}
+                for k, v in (val or {}).items():
+                    new_record[canon_q][k] = v
+            return new_record
+
+        record1 = remap_record(record1)
+        record2 = remap_record(record2)
+        record3 = remap_record(record3)
 
         all_questions = set(record1.keys()) | set(record2.keys()) | set(record3.keys())
         diff_data = {}
@@ -553,6 +597,7 @@ class CommonFunctions:
             return {}
 
         option_map = {}
+        question_clean = re.sub(r"\([^)]*\)", "", question_clean)
         option_parts = re.findall(
             r"\b([AaBbCc])\b\s*[\)\]\.:\-]\s*(.+?)(?=\s*\b[AaBbCc]\b\s*[\)\]\.:\-]|$)",
             question_clean
