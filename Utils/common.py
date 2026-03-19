@@ -109,6 +109,9 @@ class CommonFunctions:
         record1 = record1 or {}
         record2 = record2 or {}
 
+        def normalize_question_key(text):
+            return re.sub(r"\s+", " ", str(text)).strip()
+
         alias_map = {
             "Helps to resolve issues/remove roadblocks in the job": "Helps in resolving issues/remove roadblocks in the job",
             "Helps in resolving issues/remove roadblocks in the job": "Helps in resolving issues/remove roadblocks in the job",
@@ -117,11 +120,12 @@ class CommonFunctions:
             "Has created a work culture that recognizes and rewards merit": "Has created a work culture that rewards merit",
             "Has created a work culture that rewards merit": "Has created a work culture that rewards merit",
         }
+        alias_map = {normalize_question_key(k): v for k, v in alias_map.items()}
 
         def remap_record(record):
             new_record = {}
             for q, val in record.items():
-                canon_q = alias_map.get(q, q)
+                canon_q = alias_map.get(normalize_question_key(q), q)
                 if canon_q not in new_record:
                     new_record[canon_q] = {}
                 for k, v in (val or {}).items():
@@ -164,6 +168,9 @@ class CommonFunctions:
         record2 = record2 or {}
         record3 = record3 or {}
 
+        def normalize_question_key(text):
+            return re.sub(r"\s+", " ", str(text)).strip()
+
         alias_map = {
             "Helps to resolve issues/remove roadblocks in the job": "Helps in resolving issues/remove roadblocks in the job",
             "Helps in resolving issues/remove roadblocks in the job": "Helps in resolving issues/remove roadblocks in the job",
@@ -172,11 +179,12 @@ class CommonFunctions:
             "Has created a work culture that recognizes and rewards merit": "Has created a work culture that rewards merit",
             "Has created a work culture that rewards merit": "Has created a work culture that rewards merit",
         }
+        alias_map = {normalize_question_key(k): v for k, v in alias_map.items()}
 
         def remap_record(record):
             new_record = {}
             for q, val in record.items():
-                canon_q = alias_map.get(q, q)
+                canon_q = alias_map.get(normalize_question_key(q), q)
                 if canon_q not in new_record:
                     new_record[canon_q] = {}
                 for k, v in (val or {}).items():
