@@ -119,6 +119,10 @@ class CommonFunctions:
             "Works with teachers to set high academic standards that rise above minimum expectations": "Works with teachers to set high academic standards",
             "Has created a work culture that recognizes and rewards merit": "Has created a work culture that rewards merit",
             "Has created a work culture that rewards merit": "Has created a work culture that rewards merit",
+            "Facilitates opportunities for teachers to transfer and mentor other teachers on best practices": "Facilitates opportunities for teachers to share best practices/ mentor other teachers",
+            "Facilitates opportunities for teachers to share best practices/ mentor other teachers": "Facilitates opportunities for teachers to share best practices/ mentor other teachers",
+            "Provides clear, timely feedback on performance, including successes and areas of improvement": "Provides clear, timely feedback on performance, including successes and areas of improvement",
+            "Gives clear feedback about performance or when anything goes right or wrong": "Provides clear, timely feedback on performance, including successes and areas of improvement",
         }
         alias_map = {normalize_question_key(k): v for k, v in alias_map.items()}
 
@@ -178,6 +182,10 @@ class CommonFunctions:
             "Works with teachers to set high academic standards that rise above minimum expectations": "Works with teachers to set high academic standards",
             "Has created a work culture that recognizes and rewards merit": "Has created a work culture that rewards merit",
             "Has created a work culture that rewards merit": "Has created a work culture that rewards merit",
+            "Facilitates opportunities for teachers to transfer and mentor other teachers on best practices": "Facilitates opportunities for teachers to share best practices/ mentor other teachers",
+            "Facilitates opportunities for teachers to share best practices/ mentor other teachers": "Facilitates opportunities for teachers to share best practices/ mentor other teachers",
+            "Provides clear, timely feedback on performance, including successes and areas of improvement": "Provides clear, timely feedback on performance, including successes and areas of improvement",
+            "Gives clear feedback about performance or when anything goes right or wrong": "Provides clear, timely feedback on performance, including successes and areas of improvement",
         }
         alias_map = {normalize_question_key(k): v for k, v in alias_map.items()}
 
