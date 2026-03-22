@@ -5,11 +5,7 @@ import numpy as np
 from collections import defaultdict
 import asyncio
 import re
-import uuid
-import time
 import os
-
-import redis
 
 from Utils.common import CommonFunctions
 from Controllers.llmGenerationController import LLMGenerationController
@@ -27,62 +23,8 @@ from Controllers.schemas import (
     WORKPLACE_CULTURE_SCHEMA,
 )
 
-_feedback_redis_conn = None
-_feedback_rq_queue = None
-_feedback_rq_result_ttl_seconds = int(os.getenv("FEEDBACK_RQ_RESULT_TTL_SECONDS", "3600"))
-
-def _get_feedback_redis_conn():
-    global _feedback_redis_conn
-    if _feedback_redis_conn is not None:
-        return _feedback_redis_conn
-
-    redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-    _feedback_redis_conn = redis.Redis.from_url(redis_url)
-    return _feedback_redis_conn
-
-def _get_feedback_rq_queue():
-    global _feedback_rq_queue
-    if _feedback_rq_queue is not None:
-        return _feedback_rq_queue
-
-    if os.name == "nt":
-        raise HTTPException(
-            status_code=500,
-            detail="RQ requires fork and is not supported in native Windows Python. Run the backend + rq-worker via Docker/WSL/Linux.",
-        )
-
-    try:
-        from rq import Queue
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"RQ import error: {str(e)}")
-
-    queue_name = os.getenv("FEEDBACK_RQ_QUEUE", "feedback")
-    _feedback_rq_queue = Queue(name=queue_name, connection=_get_feedback_redis_conn())
-    return _feedback_rq_queue
-
-def _rq_continue_job(continue_words):
-    controller = LLMGenerationController()
-    result = CommonFunctions.timed_task(
-        "LLM continue_doing",
-        controller.analysis_comment_to_generate,
-        continue_words,
-        CONTINUE_PROMPT,
-        CONTINUE_FEEDBACK_SCHEMA,
-    )
-    return result.get('structured', {}).get('continue_doing', []) if isinstance(result, dict) else []
-
-def _rq_stop_job(stop_words):
-    controller = LLMGenerationController()
-    result = CommonFunctions.timed_task(
-        "LLM stop_doing",
-        controller.analysis_comment_to_generate,
-        stop_words,
-        STOP_PROMPT,
-        STOP_FEEDBACK_SCHEMA,
-    )
-    return result.get('structured', {}).get('stop_doing', []) if isinstance(result, dict) else []
-
 class FeedbackController:
+
     async def start_feedback_excel_base_job(self, file):
         try:
             if file is None:
@@ -325,84 +267,149 @@ class FeedbackController:
                 "action_areas_thing": action_areas_thing_llm_generate.get('structured', {}),
             }
 
-            queue = _get_feedback_rq_queue()
-            continue_job = queue.enqueue(
-                _rq_continue_job,
-                continue_words,
-                result_ttl=_feedback_rq_result_ttl_seconds,
-                job_timeout=int(os.getenv("FEEDBACK_RQ_JOB_TIMEOUT_SECONDS", "900")),
-            )
-            stop_job = queue.enqueue(
-                _rq_stop_job,
-                stop_words,
-                result_ttl=_feedback_rq_result_ttl_seconds,
-                job_timeout=int(os.getenv("FEEDBACK_RQ_JOB_TIMEOUT_SECONDS", "900")),
-            )
-
-            return {
-                "job_id": str(uuid.uuid4()),
-                "continue_job_id": continue_job.id,
-                "stop_job_id": stop_job.id,
-                **base_response,
-            }
+            return base_response
 
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error : {str(e)}")
 
-    async def run_continue_doing_by_job(self, job_id: str):
-        if os.name == "nt":
-            raise HTTPException(
-                status_code=500,
-                detail="RQ is not supported in native Windows Python. Run via Docker/WSL/Linux.",
-            )
-
+    async def extract_continue_doing_from_excel(self, file):
         try:
-            from rq.job import Job
-            rq_job = Job.fetch(job_id, connection=_get_feedback_redis_conn())
-        except Exception:
-            raise HTTPException(status_code=404, detail="Job not found")
+            if file is None:
+                return JSONResponse(status_code=400, content={"message": "File is required."})
 
-        if rq_job.is_finished:
-            result = rq_job.result or []
-            return {
-                "status": "finished",
-                "continue_doing_thing": result if isinstance(result, list) else [],
-            }
-        if rq_job.is_failed:
-            return {
-                "status": "failed",
-                "continue_doing_thing": [],
-            }
-        return {
-            "status": rq_job.get_status(),
-            "continue_doing_thing": [],
-        }
+            files = file if isinstance(file, (list, tuple)) else [file]
+            if any(f is None or getattr(f, "file", None) is None for f in files):
+                return JSONResponse(status_code=400, content={"message": "File is required."})
 
-    async def run_stop_doing_by_job(self, job_id: str):
-        if os.name == "nt":
-            raise HTTPException(
-                status_code=500,
-                detail="RQ is not supported in native Windows Python. Run via Docker/WSL/Linux.",
+            uploaded_file = files[0]
+            uploaded_file.file.seek(0)
+            df = pd.read_excel(uploaded_file.file, engine="openpyxl")
+            df = df.replace([np.nan, np.inf, -np.inf], None)
+            for col in df.columns:
+                if pd.api.types.is_datetime64_any_dtype(df[col]):
+                    df[col] = df[col].astype(str)
+            data = df.to_dict(orient="records") if df is not None else []
+            if not data:
+                return JSONResponse(status_code=400, content={"message": "No data found in uploaded file."})
+
+            grouped = defaultdict(list)
+            for row in data:
+                grouped[row.get("Name")].append(row)
+
+            if "Name" in data[0]:
+                general = grouped["General"]
+                general_competency = CommonFunctions.grouped_question(general)
+            else:
+                def extract_category(column):
+                    match = re.match(r"\[(.*?)\]\s*(.*)", column)
+                    if match:
+                        return match.group(1), match.group(2)
+                    return None, column
+
+                general_competency = {}
+                columns = list(data[0].keys())
+                for col in columns:
+                    if "Average" in col:
+                        continue
+                    category, question = extract_category(col)
+                    if category:
+                        continue
+                    exceptItem = [
+                        'Nominee Name','Employee Name','Employee ID','Nominee ID',
+                        'Rater Group','Rate Group','Rating','Comment','Declined Comment','Name','Question'
+                    ]
+                    if question not in exceptItem:
+                        general_competency[question] = [r.get(col) for r in data]
+
+            continue_data = CommonFunctions.get_workplace_culture_data(general_competency, "continue_doing")
+            continue_words = CommonFunctions.get_non_self_comments(continue_data)
+
+            print(f"DEBUG: Extracted {len(continue_words)} continue comments")
+            if len(continue_words) > 0:
+                print(f"DEBUG: First 3 comments: {continue_words[:3]}")
+
+            controller = LLMGenerationController()
+            result = await asyncio.to_thread(
+                CommonFunctions.timed_task,
+                "LLM continue_doing",
+                controller.analysis_comment_to_generate,
+                continue_words,
+                CONTINUE_PROMPT,
+                CONTINUE_FEEDBACK_SCHEMA,
             )
+            return {
+                "continue_doing_thing": result.get('structured', {}).get('continue_doing', []) if isinstance(result, dict) else [],
+            }
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error : {str(e)}")
 
+    async def extract_stop_doing_from_excel(self, file):
         try:
-            from rq.job import Job
-            rq_job = Job.fetch(job_id, connection=_get_feedback_redis_conn())
-        except Exception:
-            raise HTTPException(status_code=404, detail="Job not found")
+            if file is None:
+                return JSONResponse(status_code=400, content={"message": "File is required."})
 
-        if rq_job.is_finished:
-            result = rq_job.result or []
+            files = file if isinstance(file, (list, tuple)) else [file]
+            if any(f is None or getattr(f, "file", None) is None for f in files):
+                return JSONResponse(status_code=400, content={"message": "File is required."})
+
+            uploaded_file = files[0]
+            uploaded_file.file.seek(0)
+            df = pd.read_excel(uploaded_file.file, engine="openpyxl")
+            df = df.replace([np.nan, np.inf, -np.inf], None)
+            for col in df.columns:
+                if pd.api.types.is_datetime64_any_dtype(df[col]):
+                    df[col] = df[col].astype(str)
+            data = df.to_dict(orient="records") if df is not None else []
+            if not data:
+                return JSONResponse(status_code=400, content={"message": "No data found in uploaded file."})
+
+            grouped = defaultdict(list)
+            for row in data:
+                grouped[row.get("Name")].append(row)
+
+            if "Name" in data[0]:
+                general = grouped["General"]
+                general_competency = CommonFunctions.grouped_question(general)
+            else:
+                def extract_category(column):
+                    match = re.match(r"\[(.*?)\]\s*(.*)", column)
+                    if match:
+                        return match.group(1), match.group(2)
+                    return None, column
+
+                general_competency = {}
+                columns = list(data[0].keys())
+                for col in columns:
+                    if "Average" in col:
+                        continue
+                    category, question = extract_category(col)
+                    if category:
+                        continue
+                    exceptItem = [
+                        'Nominee Name','Employee Name','Employee ID','Nominee ID',
+                        'Rater Group','Rate Group','Rating','Comment','Declined Comment','Name','Question'
+                    ]
+                    if question not in exceptItem:
+                        general_competency[question] = [r.get(col) for r in data]
+
+            stop_data = CommonFunctions.get_workplace_culture_data(general_competency, "stop_doing")
+            stop_words = CommonFunctions.get_non_self_comments(stop_data)
+
+            print(f"DEBUG: Extracted {len(stop_words)} stop comments")
+            if len(stop_words) > 0:
+                print(f"DEBUG: First 3 comments: {stop_words[:3]}")
+
+            controller = LLMGenerationController()
+            result = await asyncio.to_thread(
+                CommonFunctions.timed_task,
+                "LLM stop_doing",
+                controller.analysis_comment_to_generate,
+                stop_words,
+                STOP_PROMPT,
+                STOP_FEEDBACK_SCHEMA,
+            )
             return {
-                "status": "finished",
-                "stop_doing_thing": result if isinstance(result, list) else [],
+                "stop_doing_thing": result.get('structured', {}).get('stop_doing', []) if isinstance(result, dict) else [],
             }
-        if rq_job.is_failed:
-            return {
-                "status": "failed",
-                "stop_doing_thing": [],
-            }
-        return {
-            "status": rq_job.get_status(),
-            "stop_doing_thing": [],
-        }
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error : {str(e)}")
