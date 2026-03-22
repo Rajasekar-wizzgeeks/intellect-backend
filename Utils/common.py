@@ -1,5 +1,7 @@
 from collections import defaultdict
 import re
+import time
+import threading
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
@@ -778,5 +780,16 @@ class CommonFunctions:
 
         return comments 
 
+    @staticmethod
+    def timed_task(name, func, *args, **kwargs):
+        start = time.time()
+        thread_id = threading.get_ident()
 
-   
+        print(f"[START] {name} | Thread: {thread_id} | Time: {round(start,2)}")
+
+        result = func(*args, **kwargs)
+
+        end = time.time()
+        print(f"[END]   {name} | Thread: {thread_id} | Duration: {round(end - start, 2)} sec")
+
+        return result

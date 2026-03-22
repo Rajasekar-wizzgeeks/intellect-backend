@@ -26,26 +26,7 @@ RULES:
 - Each input comment must remain an individual item.
 - One input comment = one output comment.
 
-3. FREQUENCY ORDERING
-- Detect comments with similar meaning.
-- Comments that appear frequently (similar ideas repeated by multiple people) must appear FIRST.
-- Comments that appear less frequently should appear later.
-- Do NOT merge similar comments; only reorder them based on frequency of similar ideas.
-
-4. MOST FREQUENT COMMENTS MUST START FIRST
-- Identify the topic/idea that appears the MOST times in the list.
-- Comments related to that most frequent meaning MUST appear at the very beginning of the output list.
-- After that, show comments from the second most frequent meaning, then third, and so on.
-- Maintain original sentences; only reorder them.
-
-Example:
-If comments about **workshops** appear the most:
-- All workshop-related comments should appear first.
-- Then meeting-related comments.
-- Then appreciation-related comments.
-- Then less frequent comments.
-
-5. MARKDOWN POSITIVE HIGHLIGHTING
+3. MARKDOWN POSITIVE HIGHLIGHTING
 Apply Markdown bold (**text**) ONLY when the sentence already contains a clearly positive trait or quality.
 
 Examples of traits that may be bolded if already written:
@@ -70,7 +51,7 @@ Input:
 Output:
 "She is **approachable** and **supportive**."
 
-6. NEGATIVE PHRASE HIGHLIGHTING
+4. NEGATIVE PHRASE HIGHLIGHTING
 If a comment contains a clearly negative phrase, highlight ONLY the negative phrase using HTML formatting.
 
 Format:
@@ -89,42 +70,171 @@ Input:
 Output:
 "He should <span style=\"color:red\"><strong>stop shouting in public</strong></span>."
 
-7. DO NOT CHANGE THE SENTENCE
+5. DO NOT CHANGE THE SENTENCE
 - Do not rewrite.
 - Do not simplify.
 - Do not summarize.
 - Only remove invalid comments, apply highlighting, and reorder by frequency.
 
-8. OUTPUT FORMAT
-Return the result as a JSON array.
 
-Example format:
+6. GROUPING WITH COUNT (HIGH-PRECISION RULE)
 
-[
-"comment 1",
-"comment 2",
-"comment 3"
-]
-
-9. GROUPING WITH COUNT (NEW RULE)
-- If multiple comments have the SAME or VERY SIMILAR meaning, group them together.
-- Display them as a single comment entry followed by the count in brackets.
-- Format: "comment text (xN)" where N = number of similar occurrences.
-- Do NOT rewrite or merge sentences — use one of the original sentences as-is.
-- Do NOT combine different phrasings into one sentence.
-- Only group exact or near-identical meaning comments.
+STEP 0:SAME SENTENCE WITH CASE, GRAMMAR, OR PUNCTUATION DIFFERENCES
+- If two comments are same but differ in casing , grammatically or punctuation, group them together
 
 Example:
-Input:
-"Waiting time to meet"
-"Waiting time to meet"
-"Delay in meeting"
+  Everything is fine
+  everything is fine 
+  Everything was fine!
 
 Output:
+  Everything is fine (x3)
+
+STEP 1: IDENTIFY INTENT (MANDATORY)
+
+- First, identify the core intent/purpose of each comment.
+- Intent = what the comment is trying to achieve (NOT just keywords or audience).
+
+Examples of intents:
+- Workshop/training needs (subject, teaching, yoga, etc.)
+- Feedback for teachers
+- Supporting/guiding staff
+- Student growth/development
+- Principal experience sharing
+- Meetings/interactions
+- Motivation/appreciation
+- Operations/management
+
+CRITICAL:
+- Same audience (e.g., teachers) ≠ same intent
+- Same words ≠ same intent
+
+--------------------------------------------------
+
+STEP 2: STRICT INTENT SEPARATION
+
+- Do NOT group comments that belong to different intents under ANY condition.
+- Even if wording is similar → KEEP SEPARATE if intent differs.
+
+Examples (DO NOT GROUP):
+- "Workshops for teachers" ≠ "Give feedback to teachers"
+- "Support teachers" ≠ "Evaluate teachers"
+- "Encourage staff" ≠ "Encourage students"
+
+--------------------------------------------------
+
+STEP 3: MEANING EQUIVALENCE (NOT JUST SIMILARITY)
+
+- Group comments ONLY if:
+  1. SAME intent, AND
+  2. SAME action, AND
+  3. SAME purpose/outcome
+
+- Wording can differ, but meaning must be interchangeable.
+
+FINAL CHECK (MANDATORY):
+Ask:
+"Can one sentence replace the other without changing meaning?"
+
+- YES → Group
+- NO → Do NOT group
+
+--------------------------------------------------
+
+STEP 4: STRICT GROUPING CONDITIONS
+
+Group ONLY when ALL are true:
+
+- Same intent
+- Same target (e.g., teachers vs students)
+- Same level of specificity
+- Same type of statement (sentence vs sentence)
+
+DO NOT GROUP IF:
+
+- Different target:
+  - "Support teachers" vs "Support students"
+
+- Different action:
+  - "Motivate teachers" vs "Appreciate teachers"
+
+- Different specificity:
+  - "Encourage" vs "Encourage teachers to take responsibility"
+
+- Single word vs sentence (unless meaning is clearly identical)
+
+- Multi-intent sentences:
+  - "Motivate and appreciate teachers" → DO NOT group with single-intent comments
+
+--------------------------------------------------
+
+STEP 5: GROUPING EXECUTION
+
+- Select ONE original comment as representative (DO NOT modify it)
+- COUNT RULE (CRITICAL):
+
+- Add (xN) ONLY if N >= 2
+- If a comment appears only once:
+  - DO NOT add (x1)
+  - Keep it as a normal single comment
+- Include ALL original comments in the group
+
+Output Format:
 [
-"Waiting time to meet (x2)",
-"Delay in meeting"
+  [
+    "Representative comment (original comment) (xN)",
+    "Single comment (original comment)",
+    "Next group (original comment) (xN)",
+    ...
+  ]
 ]
+
+--------------------------------------------------
+
+STEP 6: STRICT SAFETY RULES
+
+- Do NOT rewrite or merge sentences  
+- Do NOT combine different phrasings into one sentence  
+- Do NOT group based on keywords alone  
+- Prefer UNDER-grouping over WRONG grouping  
+
+--------------------------------------------------
+
+IMPORTANT PRINCIPLES
+
+- Group by PURPOSE, not by wording  
+- Similar words ≠ Same meaning  
+- Same audience ≠ Same intent  
+- If ANY doubt → DO NOT group  
+
+--------------------------------------------------
+
+QUALITY STANDARD
+
+- Zero cross-intent grouping
+- Only true meaning-equivalent grouping
+- Preserve all original comments
+
+
+7. FREQUENCY ORDERING
+- Detect groups of comments with similar meaning (as formed in Rule 6).
+- Groups that appear frequently (higher xN count) must appear FIRST.
+- Groups that appear less frequently should appear later.
+- Do NOT reorder or mix individual comments across groups.
+- Only reorder entire groups based on frequency.
+
+8. MOST FREQUENT COMMENTS MUST START FIRST
+- Identify the topic/idea that appears the MOST times in the list.
+- Comments related to that most frequent meaning MUST appear at the very beginning of the output list.
+- After that, show comments from the second most frequent meaning, then third, and so on.
+- Maintain original sentences; only reorder them.
+
+Example:
+If comments about **waiting time** appear the most:
+- All waiting-time related comments (group) should appear first.
+- Then the group with the next highest frequency.
+- Then the group with the next highest frequency.
+- Continue in descending order of frequency.
 
 IMPORTANT:
 - No explanations.
@@ -133,77 +243,61 @@ IMPORTANT:
 """
 
 
-STOP_PROMPT = """
-You are a STRICT Comment Processor.
+STOP_PROMPT = """You are a STRICT Comment Processor.
 
 INPUT:
 You will receive a JSON array (list) of comment strings.
 
 OBJECTIVE:
-Return EVERY valid comment exactly as written, but reordered with STRICT three-phase ordering:
+Clean, organize, group, and reorder comments with STRICT logic:
 
-1) NEGATIVE comments first (frequency-grouped).
-2) After ALL negative comments, output ALL OTHER comments (frequency-grouped).
-3) AFTER ALL valid comments, append a final line summarizing placeholder responses with frequency counts.
+1. NEGATIVE comments first (frequency-grouped)
+2. Then ALL OTHER comments (frequency-grouped)
+3. Then a final placeholder summary line
 
-ABSOLUTE RULES (MANDATORY):
+--------------------------------------------------
 
-1. Do NOT merge, combine, collapse, or deduplicate comments.
-2. Do NOT rewrite, rephrase, expand, shorten, translate, or correct grammar.
-3. Do NOT summarize valid comments.
-4. Do NOT add new comments.
-5. Do NOT skip any valid comment.
-6. One input comment string = one output comment string.
-7. If the exact same comment string appears multiple times in input, it MUST appear the same number of times in output.
+RULES
 
-----------------------------------
+1. KEEP ALL VALID COMMENTS
+- Keep every meaningful comment exactly as written
+- One input comment = one output comment
+- Preserve duplicates exactly
 
-STEP 0 — IDENTIFY PLACEHOLDER / INVALID RESPONSES
+2. NO MERGING (STRICT)
+- Do NOT merge, combine, or deduplicate comments
+- Do NOT rewrite, summarize, or modify wording
+- Meaning groups are ONLY for grouping and ordering
 
-Before processing comments, examine every comment.
+--------------------------------------------------
 
-Trim spaces and convert to lowercase for checking.
+3. PLACEHOLDER DETECTION
 
-A comment is considered a PLACEHOLDER if it matches or clearly represents:
+Trim spaces and convert to lowercase.
 
-nil
-na
-n/a
--
---
----
-none
-nothing
-no comment
-no comments
-no remarks
-not applicable
-nothing specific
-nothing like that
-nothing to mention
-no complaints
+A comment is a placeholder if it matches:
+- nil, na, n/a
+- -, --, ---
+- none
+- nothing
+- no comment / no comments
+- no remarks
+- not applicable
+- nothing specific
+- nothing like that
+- nothing to mention
+- no complaints
 
-Also treat comments containing ONLY punctuation or dashes as placeholders.
+Also treat punctuation-only responses as placeholders.
 
-Examples:
-"-"
-"--"
-"---"
-"Nil"
-"NA"
-"no comment"
-"Nothing"
-"nothing specific"
+--------------------------------------------------
 
-----------------------------------
+4. PLACEHOLDER HANDLING
 
-PLACEHOLDER HANDLING RULES
+- REMOVE placeholders from main output
+- COUNT occurrences per type:
 
-1. DO NOT include placeholder comments in the main ordered list.
-2. Instead, count how many times each placeholder meaning appears.
-
-Normalize placeholders into these summary groups:
-
+Groups:
 Nothing
 Nil
 None
@@ -214,165 +308,166 @@ Nothing like that
 Nothing to mention
 -
 
-Count occurrences of each.
+- Append ONE final summary string at the END
 
-At the VERY END of the output, append ONE final summary string showing these counts.
+Example:
+"Nothing (7) / Nil (4) / None (3) / - (2)"
 
-FORMAT example:
+Only include groups that appear.
 
-"Nothing (7) / Nil (4) / None (3) / - (2) / NA (1) / No complaints (1) / Nothing Specific (1) / Nothing like that (1) / Nothing to mention (1)"
+--------------------------------------------------
 
-Only include groups that appear at least once.
+5. NEGATIVE vs OTHER CLASSIFICATION
 
-----------------------------------
-
-MANDATORY PROCESSING ALGORITHM
-
-Follow steps exactly in order.
-
-----------------------------------
-
-STEP 1 — Separate Valid Comments
-
-Ignore placeholders identified earlier.
-
-Classify remaining comments into:
-
-Group A: Negative comments
-Examples:
+Group A: NEGATIVE
 - complaints
-- criticism
-- behaviour someone should stop
 - dissatisfaction
+- criticism
+- what should stop
 
-Group B: Other comments
-Examples:
+Group B: OTHER
 - neutral
 - suggestions
 - positive
-- unclear
 
-----------------------------------
+--------------------------------------------------
 
-STEP 2 — Frequency Ordering for NEGATIVE Comments
+6. GROUPING WITH COUNT (FINAL HIGH-PRECISION RULE)
 
-1. Analyze ALL comments in Group A.
-2. Identify comments with SAME or VERY SIMILAR meaning.
-3. Create meaning groups ONLY for frequency counting.
+STEP 0: SAME SENTENCE WITH CASE, GRAMMAR, OR PUNCTUATION DIFFERENCES
+- If two comments are same but differ in casing , grammatically or punctuation, group them together
 
-IMPORTANT:
-Meaning groups are ONLY used to count frequency.
-Original comments must remain unchanged.
+Example:
+  Everything is fine
+  everything is fine 
+  Everything was fine!
 
-4. Count how many comments belong to each meaning group.
-5. Sort meaning groups by frequency (highest → lowest).
+then group them as Everything is fine (x3)
 
-OUTPUT ORDER:
+STEP 1: IDENTIFY INTENT
+- Intent = purpose of the comment (NOT wording)
 
-First → comments from the most frequent meaning group
-Second → comments from the second most frequent group
-Third → comments from the third most frequent group
+Examples:
+- Workshops / training
+- Feedback
+- Support
+- Student growth
+- Meetings
+- Motivation
+- Operations
 
-Continue until ALL negative comments are listed.
+CRITICAL:
+- Same audience ≠ same intent
+- Same words ≠ same intent
 
-STABILITY RULE:
-Within the same meaning group, preserve original input order.
+--------------------------------------------------
+
+STEP 2: STRICT INTENT SEPARATION
+- NEVER group different intents
+- Even if wording looks similar → KEEP SEPARATE
+
+--------------------------------------------------
+
+STEP 3: MEANING EQUIVALENCE
+
+Group ONLY if ALL are true:
+- Same intent
+- Same action
+- Same outcome
+- Meaning is interchangeable
+
+FINAL CHECK:
+"Can one replace the other without changing meaning?"
+
+YES → Group  
+NO → Do NOT group  
+
+--------------------------------------------------
+
+STEP 4: GROUPING BLOCKERS
+
+DO NOT GROUP IF:
+- Different target (teachers vs students)
+- Different action (motivate vs appreciate)
+- Different specificity (generic vs specific)
+- Single word vs sentence
+- Multi-intent vs single-intent
+
+--------------------------------------------------
+
+STEP 5: COUNT RULE
+
+- Add (xN) ONLY if N >= 2
+- NEVER output (x1)
+- Single comments remain without count
+
+--------------------------------------------------
+
+7. FREQUENCY ORDERING
+
+Apply separately for:
+1. NEGATIVE groups (first)
+2. OTHER groups (next)
+
+PROCESS:
+- Sort groups by frequency (descending)
+
+RULES:
+- Do NOT break groups
+- Preserve original order within each group
 
 TIE RULE:
-If two groups have equal frequency, the group appearing earlier in the input list comes first.
+- If same frequency → earlier group comes first
 
-----------------------------------
+--------------------------------------------------
 
-STEP 3 — Frequency Ordering for OTHER Comments
+8. TEXT FORMATTING
 
-After finishing ALL negative comments:
+NEGATIVE:
+- Highlight ONLY exact negative phrase using:
+<span style="color:red"><strong>...</strong></span>
 
-1. Take all comments in Group B.
-2. Group by similar meaning for counting.
-3. Count frequencies.
-4. Sort meaning groups by frequency (highest → lowest).
+POSITIVE:
+- Bold (**text**) ONLY existing positive traits
+- Do NOT invent or over-highlight
 
-Output comments following the same stability and tie rules.
+--------------------------------------------------
 
-----------------------------------
+9. IMPORTANT PRINCIPLES
 
-TEXT FORMATTING RULES
+- Intent > wording  
+- Meaning > keywords  
+- Prefer UNDER-grouping over WRONG grouping  
+- If unsure → DO NOT group  
 
-1. If a comment contains a clearly negative phrase, highlight ONLY that phrase using:
+--------------------------------------------------
 
-<span style=\"color:red\"><strong>negative phrase</strong></span>
+10. OUTPUT STRUCTURE (CRITICAL)
 
-2. Highlight ONLY the exact words already present in the sentence.
-3. Apply Markdown bold (**text**) ONLY to clearly positive traits already written.
-4. Do NOT invent new words.
-5. Do NOT bold entire sentences unless the whole sentence is purely positive.
-6. Do NOT change wording.
-
-----------------------------------
-
-CRITICAL ANTI-MERGE RULE
-
-Meaning groups are ONLY for counting frequency.
-
-You MUST NEVER merge comments.
-
-Example:
-
-Input:
-"Do not shout at staff"
-"Stop shouting in public"
-
-CORRECT OUTPUT:
-"Do not shout at staff"
-"Stop shouting in public"
-
-INCORRECT:
-"Stop shouting at staff in public"
-
-----------------------------------
-GROUPING WITH COUNT (NEW RULE)
-- If multiple comments have the SAME or VERY SIMILAR meaning, group them together.
-- Display them as a single comment entry followed by the count in brackets.
-- Format: "comment text (xN)" where N = number of similar occurrences.
-- Do NOT rewrite or merge sentences — use one of the original sentences as-is.
-- Do NOT combine different phrasings into one sentence.
-- Only group exact or near-identical meaning comments.
-
-Example:
-Input:
-"Waiting time to meet"
-"Waiting time to meet"
-"Delay in meeting"
-
-Output:
-[
-"Waiting time to meet (x2)",
-"Delay in meeting"
-]
-----------------------------------
-
-FINAL OUTPUT FORMAT
-
-Return ONLY valid JSON with exactly this structure:
+Return ONLY valid JSON:
 
 {
   "stop_doing": [
-    "comment 1",
-    "comment 2",
-    "comment 3",
-    "Nothing (7) / Nil (4) / None (3) / - (2) / NA (1)"
+    
+      "Representative comment (xN) (original comment)",
+      "Single comment (original comment)",
+      "Next group (xN) (original comment)",
+      "Nothing (7) / Nil (4) / None (3) / - (2) (original comment)"
   ]
 }
 
-----------------------------------
+--------------------------------------------------
 
-FINAL RULES
+OUTPUT RULES
 
-1. All NEGATIVE comments must appear first.
-2. Then ALL OTHER comments.
-3. Placeholder summary MUST appear as the LAST item in the array.
-4. Do NOT output explanations.
-5. Output ONLY JSON.
+- NEGATIVE groups FIRST
+- Then OTHER groups
+- Placeholder summary LAST
+- Each group must be an array
+- Do NOT mix raw strings (except final summary)
+- Every comment must appear exactly once
+- No explanations
+- Only JSON output
 """
 
 STAND_OUT_LEADER_SIMPLE_PROMPT = """

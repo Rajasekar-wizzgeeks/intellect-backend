@@ -47,7 +47,6 @@ class LLMGenerationController:
                 status_code=500,
                 content={"message": f"Error : {str(e)}"}
             )
-    
     def analysis_comment_to_generate(self, data,system_prompt=None,feedback_schema=None):
         try:
             client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
@@ -63,10 +62,11 @@ class LLMGenerationController:
                     
                 contents=data
             )
-            usage = response.usage_metadata
-            print("Prompt Tokens:", usage.prompt_token_count)
-            print("Completion Tokens:", usage.candidates_token_count)
-            print("Total Tokens:", usage.total_token_count)
+            usage = getattr(response, "usage_metadata", None)
+            if usage:
+                print("Prompt Tokens:", usage.prompt_token_count)
+                print("Completion Tokens:", usage.candidates_token_count)
+                print("Total Tokens:", usage.total_token_count)
             response_text=response.text
             # response_text=""
          
@@ -90,7 +90,6 @@ class LLMGenerationController:
                 status_code=500,
                 content={"message": f"Error : {str(e)}"}
             )
-
     
 
         
