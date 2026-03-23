@@ -182,9 +182,9 @@ STEP 5: GROUPING EXECUTION
 Output Format:
 [
   [
-    "Representative comment (original comment) (xN)",
-    "Single comment (original comment)",
-    "Next group (original comment) (xN)",
+    "Representative comment from grouping comments (xN)",
+    "Next group (xN)",
+    "Single ungrouped comment",
     ...
   ]
 ]
@@ -449,10 +449,13 @@ Return ONLY valid JSON:
 {
   "stop_doing": [
     
-      "Representative comment (xN) (original comment)",
-      "Single comment (original comment)",
-      "Next group (xN) (original comment)",
-      "Nothing (7) / Nil (4) / None (3) / - (2) (original comment)"
+    Output Format:[
+  
+    "Representative comment from grouping comments (xN)",
+    "Next group (xN)",
+    "Single ungrouped comment",
+    ...  
+]
   ]
 }
 
