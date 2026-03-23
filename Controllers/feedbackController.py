@@ -218,6 +218,14 @@ class FeedbackController:
 
                 for future in asyncio.as_completed(tasks):
                     task_name, result = await future
+                    if not isinstance(result, dict):
+                        payload = {'type': 'error', 'source': task_name, 'error': 'Invalid LLM response'}
+                        yield f"data: {json.dumps(payload)}\n\n"
+                        continue
+                    if result.get('error'):
+                        payload = {'type': 'error', 'source': task_name, 'error': result.get('error')}
+                        yield f"data: {json.dumps(payload)}\n\n"
+                        continue
                     if task_name == "LLM predominant_leader_thing":
                         payload = {'type': 'predominant_leader_thing', 'data': result.get('structured', {}).get('predominant_leader_thing', [])}
                         yield f"data: {json.dumps(payload)}\n\n"
@@ -236,6 +244,7 @@ class FeedbackController:
             except Exception as e:
                 payload = {'error': str(e)}
                 yield f"data: {json.dumps(payload)}\n\n"
+                yield "data: [DONE]\n\n"
 
         return StreamingResponse(event_generator(), media_type="text/event-stream")
 
@@ -311,6 +320,14 @@ class FeedbackController:
                     await asyncio.sleep(15) 
 
                 result = await llm_task
+                if not isinstance(result, dict):
+                    payload = {'type': 'error', 'error': 'Invalid LLM response'}
+                    yield f"data: {json.dumps(payload)}\n\n"
+                    return
+                if result.get('error'):
+                    payload = {'type': 'error', 'error': result.get('error')}
+                    yield f"data: {json.dumps(payload)}\n\n"
+                    return
                 payload = {'type': 'continue_doing_thing', 'data': result.get('structured', {}).get('continue_doing', [])}
                 yield f"data: {json.dumps(payload)}\n\n"
                 yield "data: [DONE]\n\n"
@@ -318,6 +335,7 @@ class FeedbackController:
             except Exception as e:
                 payload = {'error': str(e)}
                 yield f"data: {json.dumps(payload)}\n\n"
+                yield "data: [DONE]\n\n"
 
         return StreamingResponse(event_generator(), media_type="text/event-stream")
 
@@ -393,6 +411,14 @@ class FeedbackController:
                     await asyncio.sleep(15)
 
                 result = await llm_task
+                if not isinstance(result, dict):
+                    payload = {'type': 'error', 'error': 'Invalid LLM response'}
+                    yield f"data: {json.dumps(payload)}\n\n"
+                    return
+                if result.get('error'):
+                    payload = {'type': 'error', 'error': result.get('error')}
+                    yield f"data: {json.dumps(payload)}\n\n"
+                    return
                 payload = {'type': 'stop_doing_thing', 'data': result.get('structured', {}).get('stop_doing', [])}
                 yield f"data: {json.dumps(payload)}\n\n"
                 yield "data: [DONE]\n\n"
@@ -400,5 +426,6 @@ class FeedbackController:
             except Exception as e:
                 payload = {'error': str(e)}
                 yield f"data: {json.dumps(payload)}\n\n"
+                yield "data: [DONE]\n\n"
 
         return StreamingResponse(event_generator(), media_type="text/event-stream")
