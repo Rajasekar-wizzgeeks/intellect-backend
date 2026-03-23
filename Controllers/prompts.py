@@ -76,145 +76,114 @@ Output:
 - Do not summarize.
 - Only remove invalid comments, apply highlighting, and reorder by frequency.
 
+6. GROUPING WITH COUNT (HIGH-PRECISION + CONTEXT-AWARE)
 
-6. GROUPING WITH COUNT (HIGH-PRECISION RULE)
+STEP 0: CONTEXT VARIANT ISOLATION (MANDATORY)
 
-STEP 0:SAME SENTENCE WITH CASE, GRAMMAR, OR PUNCTUATION DIFFERENCES
-- If two comments are same but differ in casing , grammatically or punctuation, group them together
+- Comments that appear similar may carry different meanings depending on context.
+- These are context variants.
+
+RULE:
+- If two comments could belong to different contexts → DO NOT GROUP
+
+Examples:
+- "Good UI" (appreciation) vs "UI should be good" (expectation) → DO NOT GROUP  
+- "Fast delivery" (positive feedback) vs "Need fast delivery" (request) → DO NOT GROUP  
+
+
+STEP 1: NORMALIZATION CHECK (FOR MATCHING ONLY)
+
+For comparison ONLY:
+- Ignore casing, punctuation, spacing
+
+Group ONLY if context is identical
+
+Examples:
+- "Good service" vs "good service!!" → GROUP  
+- "Good service" (praise) vs "Need good service" (expectation) → DO NOT GROUP  
+
+
+STEP 2: STRICT INTENT IDENTIFICATION
+
+- Identify intent independently for each comment.
+- Do NOT assume intent from wording similarity.
+
+Examples:
+- "Add dark mode" → request  
+- "Dark mode is nice" → appreciation  
+→ DO NOT GROUP  
+
+
+STEP 3: STRICT GROUPING CONDITIONS
+
+Group ONLY if ALL are identical:
+
+- Intent  
+- Action  
+- Purpose  
+- Target  
+- Specificity level  
+- Context variant (MANDATORY)  
+
+If ANY mismatch → DO NOT GROUP  
+
+
+STEP 4: MEANING EQUIVALENCE CHECK
+
+Ask:
+"Can one replace the other without changing meaning in original context?"
+
+- YES → GROUP  
+- NO → DO NOT GROUP  
+
+Examples:
+- "App is slow" vs "Application is slow" → GROUP  
+- "App is slow" vs "App feels slightly slow sometimes" → DO NOT GROUP  
+
+
+STEP 5: ANTI-FALSE GROUPING (CRITICAL)
+
+NEVER group if categories differ:
+
+- Appreciation vs Expectation → DO NOT GROUP  
+- Observation vs Suggestion → DO NOT GROUP  
+- Complaint vs Request → DO NOT GROUP  
+- Neutral vs Improvement hint → DO NOT GROUP  
+
+Examples:
+- "Great support" vs "Support should improve" → DO NOT GROUP  
+- "Login takes time" vs "Improve login speed" → DO NOT GROUP  
+
+
+STEP 6: GROUPING EXECUTION
+
+- Select ONE original comment as representative (DO NOT modify it)  
+- Add (xN) ONLY if N >= 2  
+- Keep single comments as-is  
 
 Example:
-  Everything is fine
-  everything is fine 
-  Everything was fine!
+- "App is slow"  
+- "app is slow"  
+Output: "App is slow (x2)"  
 
-Output:
-  Everything is fine (x3)
 
-STEP 1: IDENTIFY INTENT (MANDATORY)
+STEP 7: SAFETY PRIORITY
 
-- First, identify the core intent/purpose of each comment.
-- Intent = what the comment is trying to achieve (NOT just keywords or audience).
+Always prioritize:
 
-Examples of intents:
-- Workshop/training needs (subject, teaching, yoga, etc.)
-- Feedback for teachers
-- Supporting/guiding staff
-- Student growth/development
-- Principal experience sharing
-- Meetings/interactions
-- Motivation/appreciation
-- Operations/management
+- Context over wording  
+- Context over similarity  
+- Meaning over structure  
 
-CRITICAL:
-- Same audience (e.g., teachers) ≠ same intent
-- Same words ≠ same intent
+FINAL RULE:
+- If ANY doubt exists → DO NOT GROUP  
 
---------------------------------------------------
 
-STEP 2: STRICT INTENT SEPARATION
+KEY PRINCIPLE
 
-- Do NOT group comments that belong to different intents under ANY condition.
-- Even if wording is similar → KEEP SEPARATE if intent differs.
-
-Examples (DO NOT GROUP):
-- "Workshops for teachers" ≠ "Give feedback to teachers"
-- "Support teachers" ≠ "Evaluate teachers"
-- "Encourage staff" ≠ "Encourage students"
-
---------------------------------------------------
-
-STEP 3: MEANING EQUIVALENCE (NOT JUST SIMILARITY)
-
-- Group comments ONLY if:
-  1. SAME intent, AND
-  2. SAME action, AND
-  3. SAME purpose/outcome
-
-- Wording can differ, but meaning must be interchangeable.
-
-FINAL CHECK (MANDATORY):
-Ask:
-"Can one sentence replace the other without changing meaning?"
-
-- YES → Group
-- NO → Do NOT group
-
---------------------------------------------------
-
-STEP 4: STRICT GROUPING CONDITIONS
-
-Group ONLY when ALL are true:
-
-- Same intent
-- Same target (e.g., teachers vs students)
-- Same level of specificity
-- Same type of statement (sentence vs sentence)
-
-DO NOT GROUP IF:
-
-- Different target:
-  - "Support teachers" vs "Support students"
-
-- Different action:
-  - "Motivate teachers" vs "Appreciate teachers"
-
-- Different specificity:
-  - "Encourage" vs "Encourage teachers to take responsibility"
-
-- Single word vs sentence (unless meaning is clearly identical)
-
-- Multi-intent sentences:
-  - "Motivate and appreciate teachers" → DO NOT group with single-intent comments
-
---------------------------------------------------
-
-STEP 5: GROUPING EXECUTION
-
-- Select ONE original comment as representative (DO NOT modify it)
-- COUNT RULE (CRITICAL):
-
-- Add (xN) ONLY if N >= 2
-- If a comment appears only once:
-  - DO NOT add (x1)
-  - Keep it as a normal single comment
-- Include ALL original comments in the group
-
-Output Format:
-[
-  [
-    "Representative comment from grouping comments (xN)",
-    "Next group (xN)",
-    "Single ungrouped comment",
-    ...
-  ]
-]
-
---------------------------------------------------
-
-STEP 6: STRICT SAFETY RULES
-
-- Do NOT rewrite or merge sentences  
-- Do NOT combine different phrasings into one sentence  
-- Do NOT group based on keywords alone  
-- Prefer UNDER-grouping over WRONG grouping  
-
---------------------------------------------------
-
-IMPORTANT PRINCIPLES
-
-- Group by PURPOSE, not by wording  
-- Similar words ≠ Same meaning  
-- Same audience ≠ Same intent  
-- If ANY doubt → DO NOT group  
-
---------------------------------------------------
-
-QUALITY STANDARD
-
-- Zero cross-intent grouping
-- Only true meaning-equivalent grouping
-- Preserve all original comments
-
+Similar wording does not mean same meaning  
+Only group when meaning and context are identical  
+Otherwise keep separate
 
 7. FREQUENCY ORDERING
 - Detect groups of comments with similar meaning (as formed in Rule 6).
@@ -235,6 +204,20 @@ If comments about **waiting time** appear the most:
 - Then the group with the next highest frequency.
 - Then the group with the next highest frequency.
 - Continue in descending order of frequency.
+
+9. OUTPUT STRUCTURE (CRITICAL)
+
+Return ONLY valid JSON:
+
+{
+  "continue_doing": [
+    
+    "Representative comment from grouping comments (xN)",
+    "Next group (xN)",
+    "Single ungrouped comment",
+    ...  
+  ]
+}
 
 IMPORTANT:
 - No explanations.
@@ -332,92 +315,114 @@ Group B: OTHER
 
 --------------------------------------------------
 
-6. GROUPING WITH COUNT (FINAL HIGH-PRECISION RULE)
+6. GROUPING WITH COUNT (HIGH-PRECISION + CONTEXT-AWARE)
 
-STEP 0: SAME SENTENCE WITH CASE, GRAMMAR, OR PUNCTUATION DIFFERENCES
-- If two comments are same but differ in casing , grammatically or punctuation, group them together
+STEP 0: CONTEXT VARIANT ISOLATION (MANDATORY)
 
-Example:
-  Everything is fine
-  everything is fine 
-  Everything was fine!
+- Comments that appear similar may carry different meanings depending on context.
+- These are context variants.
 
-then group them as Everything is fine (x3)
-
-STEP 1: IDENTIFY INTENT
-- Intent = purpose of the comment (NOT wording)
+RULE:
+- If two comments could belong to different contexts → DO NOT GROUP
 
 Examples:
-- Workshops / training
-- Feedback
-- Support
-- Student growth
-- Meetings
-- Motivation
-- Operations
+- "Good UI" (appreciation) vs "UI should be good" (expectation) → DO NOT GROUP  
+- "Fast delivery" (positive feedback) vs "Need fast delivery" (request) → DO NOT GROUP  
 
-CRITICAL:
-- Same audience ≠ same intent
-- Same words ≠ same intent
 
---------------------------------------------------
+STEP 1: NORMALIZATION CHECK (FOR MATCHING ONLY)
 
-STEP 2: STRICT INTENT SEPARATION
-- NEVER group different intents
-- Even if wording looks similar → KEEP SEPARATE
+For comparison ONLY:
+- Ignore casing, punctuation, spacing
 
---------------------------------------------------
+Group ONLY if context is identical
 
-STEP 3: MEANING EQUIVALENCE
+Examples:
+- "Good service" vs "good service!!" → GROUP  
+- "Good service" (praise) vs "Need good service" (expectation) → DO NOT GROUP  
 
-Group ONLY if ALL are true:
-- Same intent
-- Same action
-- Same outcome
-- Meaning is interchangeable
 
-FINAL CHECK:
-"Can one replace the other without changing meaning?"
+STEP 2: STRICT INTENT IDENTIFICATION
 
-YES → Group  
-NO → Do NOT group  
+- Identify intent independently for each comment.
+- Do NOT assume intent from wording similarity.
 
---------------------------------------------------
+Examples:
+- "Add dark mode" → request  
+- "Dark mode is nice" → appreciation  
+→ DO NOT GROUP  
 
-STEP 4: GROUPING BLOCKERS
 
-DO NOT GROUP IF:
-- Different target (teachers vs students)
-- Different action (motivate vs appreciate)
-- Different specificity (generic vs specific)
-- Single word vs sentence
-- Multi-intent vs single-intent
+STEP 3: STRICT GROUPING CONDITIONS
 
---------------------------------------------------
+Group ONLY if ALL are identical:
 
-STEP 5: COUNT RULE
+- Intent  
+- Action  
+- Purpose  
+- Target  
+- Specificity level  
+- Context variant (MANDATORY)  
 
-- Add (xN) ONLY if N >= 2
-- NEVER output (x1)
-- Single comments remain without count
+If ANY mismatch → DO NOT GROUP  
 
---------------------------------------------------
 
-7. FREQUENCY ORDERING
+STEP 4: MEANING EQUIVALENCE CHECK
 
-Apply separately for:
-1. NEGATIVE groups (first)
-2. OTHER groups (next)
+Ask:
+"Can one replace the other without changing meaning in original context?"
 
-PROCESS:
-- Sort groups by frequency (descending)
+- YES → GROUP  
+- NO → DO NOT GROUP  
 
-RULES:
-- Do NOT break groups
-- Preserve original order within each group
+Examples:
+- "App is slow" vs "Application is slow" → GROUP  
+- "App is slow" vs "App feels slightly slow sometimes" → DO NOT GROUP  
 
-TIE RULE:
-- If same frequency → earlier group comes first
+
+STEP 5: ANTI-FALSE GROUPING (CRITICAL)
+
+NEVER group if categories differ:
+
+- Appreciation vs Expectation → DO NOT GROUP  
+- Observation vs Suggestion → DO NOT GROUP  
+- Complaint vs Request → DO NOT GROUP  
+- Neutral vs Improvement hint → DO NOT GROUP  
+
+Examples:
+- "Great support" vs "Support should improve" → DO NOT GROUP  
+- "Login takes time" vs "Improve login speed" → DO NOT GROUP  
+
+
+STEP 6: GROUPING EXECUTION
+
+- Select ONE original comment as representative (DO NOT modify it)  
+- Add (xN) ONLY if N >= 2  
+- Keep single comments as-is  
+
+Example:
+- "App is slow"  
+- "app is slow"  
+Output: "App is slow (x2)"  
+
+
+STEP 7: SAFETY PRIORITY
+
+Always prioritize:
+
+- Context over wording  
+- Context over similarity  
+- Meaning over structure  
+
+FINAL RULE:
+- If ANY doubt exists → DO NOT GROUP  
+
+
+KEY PRINCIPLE
+
+Similar wording does not mean same meaning  
+Only group when meaning and context are identical  
+Otherwise keep separate
 
 --------------------------------------------------
 
@@ -449,8 +454,6 @@ Return ONLY valid JSON:
 {
   "stop_doing": [
     
-    Output Format:[
-  
     "Representative comment from grouping comments (xN)",
     "Next group (xN)",
     "Single ungrouped comment",
