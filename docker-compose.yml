@@ -6,6 +6,35 @@ services:
       dockerfile: Dockerfile
     ports:
       - "7204:7204"
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - FEEDBACK_RQ_QUEUE=feedback
+      - FEEDBACK_RQ_RESULT_TTL_SECONDS=3600
+      - FEEDBACK_RQ_JOB_TIMEOUT_SECONDS=900
+    networks:
+      - shared-app-network
+    restart: unless-stopped
+
+  redis:
+    container_name: intellect-redis
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - shared-app-network
+    restart: unless-stopped
+
+  rq-worker:
+    container_name: intellect-rq-worker
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["rq", "worker", "feedback", "--url", "redis://redis:6379/0"]
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - FEEDBACK_RQ_QUEUE=feedback
+      - FEEDBACK_RQ_RESULT_TTL_SECONDS=3600
+      - FEEDBACK_RQ_JOB_TIMEOUT_SECONDS=900
     networks:
       - shared-app-network
     restart: unless-stopped

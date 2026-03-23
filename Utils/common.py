@@ -1,5 +1,7 @@
 from collections import defaultdict
 import re
+import time
+import threading
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
@@ -758,25 +760,38 @@ class CommonFunctions:
 
         for item in records:
             comment = None
-            rate_group=None
+            rate_group = None
             if isinstance(item, dict):
                 comment = item.get("Comment")
-                rate_group = item.get("Rater Group")
+                # Check both Rater Group and Rate Group
+                rate_group = item.get("Rater Group") or item.get("Rate Group")
             else:
                 comment = item
             
             if comment is not None and not isinstance(comment, str):
                 comment = str(comment)
 
-            if rate_group == "Self" :
+            # Case-insensitive check for Self
+            if rate_group and str(rate_group).strip().lower() == "self":
                 continue
 
-            # comment = item.get("Comment")
-            # ignore_values = {"nil", "-", "no comment", "no comments", "na", "none"}
-            if comment and comment.strip() :
-                comments.append(comment.strip())
+            if comment:
+                c_clean = comment.strip()
+                if c_clean and c_clean.lower() not in {"nil", "n/a", "na", "-", "none", "no comment", "no comments"}:
+                    comments.append(c_clean)
 
         return comments 
 
+    @staticmethod
+    def timed_task(name, func, *args, **kwargs):
+        start = time.time()
+        thread_id = threading.get_ident()
 
-   
+        print(f"[START] {name} | Thread: {thread_id} | Time: {round(start,2)}")
+
+        result = func(*args, **kwargs)
+
+        end = time.time()
+        print(f"[END]   {name} | Thread: {thread_id} | Duration: {round(end - start, 2)} sec")
+
+        return result
