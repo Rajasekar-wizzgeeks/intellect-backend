@@ -43,10 +43,11 @@ class LLMGenerationController:
             }
             
         except Exception as e:
-            return JSONResponse(
-                status_code=500,
-                content={"message": f"Error : {str(e)}"}
-            )
+            return {
+                "content": "{}",
+                "structured": {},
+                "error": str(e),
+            }
     def analysis_comment_to_generate(self, data,system_prompt=None,feedback_schema=None):
         try:
             client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
@@ -86,10 +87,11 @@ class LLMGenerationController:
             }
             
         except Exception as e:
-            return JSONResponse(
-                status_code=500,
-                content={"message": f"Error : {str(e)}"}
-            )
+            return {
+                "content": "{}",
+                "structured": {},
+                "error": str(e),
+            }
     
 
         
