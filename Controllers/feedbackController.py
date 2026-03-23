@@ -30,12 +30,14 @@ class FeedbackController:
         async def event_generator():
             try:
                 if file is None:
-                    yield f"data: {json.dumps({'error': 'File is required.'})}\n\n"
+                    payload = {'error': 'File is required.'}
+                    yield f"data: {json.dumps(payload)}\n\n"
                     return
 
                 files = file if isinstance(file, (list, tuple)) else [file]
                 if any(f is None or getattr(f, "file", None) is None for f in files):
-                    yield f"data: {json.dumps({'error': 'File is required.'})}\n\n"
+                    payload = {'error': 'File is required.'}
+                    yield f"data: {json.dumps(payload)}\n\n"
                     return
 
                 def read_excel_records(uploaded_file):
@@ -49,9 +51,9 @@ class FeedbackController:
 
                 file1_data = read_excel_records(files[0])
                 
-                # Yield meta data early
                 name = file1_data[0].get("Employee Name") or file1_data[0].get("Name") or "Employee Name"
-                yield f"data: {json.dumps({'type': 'meta', 'name': name})}\n\n"
+                payload = {'type': 'meta', 'name': name}
+                yield f"data: {json.dumps(payload)}\n\n"
 
                 comparision_data = {}
                 if len(files) == 2:
@@ -70,11 +72,13 @@ class FeedbackController:
                     comparision_data = CommonFunctions.find_comparision_multi_year_data(f1, f2, f3)
                     print(f"DEBUG: Comparison data (3 files): {bool(comparision_data)}")
                 
-                yield f"data: {json.dumps({'type': 'comparision_average', 'data': comparision_data})}\n\n"
+                payload = {'type': 'comparision_average', 'data': comparision_data}
+                yield f"data: {json.dumps(payload)}\n\n"
 
                 data = file1_data
                 if not data:
-                    yield f"data: {json.dumps({'error': 'No data found in uploaded file.'})}\n\n"
+                    payload = {'error': 'No data found in uploaded file.'}
+                    yield f"data: {json.dumps(payload)}\n\n"
                     return
 
                 grouped = defaultdict(list)
@@ -143,7 +147,8 @@ class FeedbackController:
 
                     total_response = {"total": sum(response_by_group.values()), **response_by_group}
 
-                yield f"data: {json.dumps({'type': 'total_response', 'data': total_response})}\n\n"
+                payload = {'type': 'total_response', 'data': total_response}
+                yield f"data: {json.dumps(payload)}\n\n"
 
                 overall_questionwise_data = {}
                 overall_questionwise_data.update(right_culture_competency)
@@ -159,20 +164,27 @@ class FeedbackController:
                     'right_culture': CommonFunctions.overall_avg_by_group(right_culture_competency),
                     'engagement_with_management': CommonFunctions.overall_avg_by_group(engagement_with_management_competency)
                 }
-                yield f"data: {json.dumps({'type': 'competencies', 'summary': competencies, 'details': {
-                    'right_culture': right_culture_competency,
-                    'leadership_style': leadership_style_competency,
-                    'leadership_staff_dev': leadership_staff_dev_competency,
-                    'educational_quality': educational_quality_competency,
-                    'engagement_with_management': engagement_with_management_competency
-                }})}\n\n"
+                payload = {
+                    'type': 'competencies',
+                    'summary': competencies,
+                    'details': {
+                        'right_culture': right_culture_competency,
+                        'leadership_style': leadership_style_competency,
+                        'leadership_staff_dev': leadership_staff_dev_competency,
+                        'educational_quality': educational_quality_competency,
+                        'engagement_with_management': engagement_with_management_competency
+                    }
+                }
+                yield f"data: {json.dumps(payload)}\n\n"
 
                 strengths = CommonFunctions.find_strengths_separately(overall_questionwise_data)
                 improvements = CommonFunctions.find_area_of_improvement_separately(overall_questionwise_data)
-                yield f"data: {json.dumps({'type': 'strengths_improvements', 'strengths': strengths, 'improvements': improvements})}\n\n"
+                payload = {'type': 'strengths_improvements', 'strengths': strengths, 'improvements': improvements}
+                yield f"data: {json.dumps(payload)}\n\n"
 
                 abc_questions = CommonFunctions.count_abc_responses(general_competency)
-                yield f"data: {json.dumps({'type': 'nominee_leadership', 'data': abc_questions})}\n\n"
+                payload = {'type': 'nominee_leadership', 'data': abc_questions}
+                yield f"data: {json.dumps(payload)}\n\n"
 
                 workplace_culture = CommonFunctions.get_workplace_culture_data(general_competency, "workplace_culture")
                 stand_out = CommonFunctions.get_workplace_culture_data(general_competency, "stand_out_leader")
@@ -207,18 +219,23 @@ class FeedbackController:
                 for future in asyncio.as_completed(tasks):
                     task_name, result = await future
                     if task_name == "LLM predominant_leader_thing":
-                        yield f"data: {json.dumps({'type': 'predominant_leader_thing', 'data': result.get('structured', {}).get('predominant_leader_thing', [])})}\n\n"
+                        payload = {'type': 'predominant_leader_thing', 'data': result.get('structured', {}).get('predominant_leader_thing', [])}
+                        yield f"data: {json.dumps(payload)}\n\n"
                     elif task_name == "LLM action_areas":
-                        yield f"data: {json.dumps({'type': 'action_areas_thing', 'data': result.get('structured', {})})}\n\n"
+                        payload = {'type': 'action_areas_thing', 'data': result.get('structured', {})}
+                        yield f"data: {json.dumps(payload)}\n\n"
                     elif task_name == "LLM stand_out_leader":
-                        yield f"data: {json.dumps({'type': 'predominant_leader_most_thing', 'data': result.get('structured', {}).get('stand_out_leader', [])})}\n\n"
+                        payload = {'type': 'predominant_leader_most_thing', 'data': result.get('structured', {}).get('stand_out_leader', [])}
+                        yield f"data: {json.dumps(payload)}\n\n"
                     elif task_name == "LLM workplace_culture":
-                        yield f"data: {json.dumps({'type': 'workplace_culture', 'data': result.get('structured', {}).get('workplace_culture', [])})}\n\n"
+                        payload = {'type': 'workplace_culture', 'data': result.get('structured', {}).get('workplace_culture', [])}
+                        yield f"data: {json.dumps(payload)}\n\n"
 
                 yield "data: [DONE]\n\n"
 
             except Exception as e:
-                yield f"data: {json.dumps({'error': str(e)})}\n\n"
+                payload = {'error': str(e)}
+                yield f"data: {json.dumps(payload)}\n\n"
 
         return StreamingResponse(event_generator(), media_type="text/event-stream")
 
@@ -241,7 +258,8 @@ class FeedbackController:
                         df[col] = df[col].astype(str)
                 data = df.to_dict(orient="records") if df is not None else []
                 if not data:
-                    yield f"data: {json.dumps({'error': 'No data found in uploaded file.'})}\n\n"
+                    payload = {'error': 'No data found in uploaded file.'}
+                    yield f"data: {json.dumps(payload)}\n\n"
                     return
 
                 grouped = defaultdict(list)
@@ -288,14 +306,18 @@ class FeedbackController:
                 ))
 
                 while not llm_task.done():
-                    yield "data: {\"type\": \"processing\"}\n\n"
+                    payload = {'type': 'processing'}
+                    yield f"data: {json.dumps(payload)}\n\n"
                     await asyncio.sleep(15) 
 
                 result = await llm_task
-                yield f"data: {json.dumps({'type': 'continue_doing_thing', 'data': result.get('structured', {}).get('continue_doing', [])})}\n\n"
+                payload = {'type': 'continue_doing_thing', 'data': result.get('structured', {}).get('continue_doing', [])}
+                yield f"data: {json.dumps(payload)}\n\n"
                 yield "data: [DONE]\n\n"
+
             except Exception as e:
-                yield f"data: {json.dumps({'error': str(e)})}\n\n"
+                payload = {'error': str(e)}
+                yield f"data: {json.dumps(payload)}\n\n"
 
         return StreamingResponse(event_generator(), media_type="text/event-stream")
 
@@ -318,7 +340,8 @@ class FeedbackController:
                         df[col] = df[col].astype(str)
                 data = df.to_dict(orient="records") if df is not None else []
                 if not data:
-                    yield f"data: {json.dumps({'error': 'No data found in uploaded file.'})}\n\n"
+                    payload = {'error': 'No data found in uploaded file.'}
+                    yield f"data: {json.dumps(payload)}\n\n"
                     return
 
                 grouped = defaultdict(list)
@@ -365,13 +388,17 @@ class FeedbackController:
                 ))
 
                 while not llm_task.done():
-                    yield "data: {\"type\": \"processing\"}\n\n"
+                    payload = {'type': 'processing'}
+                    yield f"data: {json.dumps(payload)}\n\n"
                     await asyncio.sleep(15)
 
                 result = await llm_task
-                yield f"data: {json.dumps({'type': 'stop_doing_thing', 'data': result.get('structured', {}).get('stop_doing', [])})}\n\n"
+                payload = {'type': 'stop_doing_thing', 'data': result.get('structured', {}).get('stop_doing', [])}
+                yield f"data: {json.dumps(payload)}\n\n"
                 yield "data: [DONE]\n\n"
+
             except Exception as e:
-                yield f"data: {json.dumps({'error': str(e)})}\n\n"
+                payload = {'error': str(e)}
+                yield f"data: {json.dumps(payload)}\n\n"
 
         return StreamingResponse(event_generator(), media_type="text/event-stream")
