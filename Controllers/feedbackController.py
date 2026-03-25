@@ -28,7 +28,7 @@ from Controllers.schemas import (
 class FeedbackController:
     def __init__(self):
         self.now = datetime.now()
-        self.formatted_date = self.now.strftime("%d %b, %Y")
+        self.formatted_date = self.now.strftime("%b %Y")
     
     async def start_feedback_excel_base_job(self, file):
         headers = {
