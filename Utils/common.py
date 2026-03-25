@@ -143,8 +143,10 @@ class CommonFunctions:
 
         all_questions = set(record1.keys()) | set(record2.keys())
         diff_data = {}
+        manager_diff_data={}
 
         team_score_key = "Subordinates"
+        manager_score_key="Manager"
         threshold = 0.1
 
         for question in all_questions:
@@ -153,19 +155,38 @@ class CommonFunctions:
 
             v1 = groups1.get(team_score_key)
             v2 = groups2.get(team_score_key)
+
+            m1=groups1.get(manager_score_key)
+            m2=groups2.get(manager_score_key)
+            
+
             if v1 is None or v2 is None:
                 continue
+            if m1 is None or m2 is None:
+                continue
+
+
 
             team_diff = round(v1 - v2, 2)
+            manager_diff=round(m1 - m2,2)
             if abs(team_diff) <= threshold:
+                continue
+            if abs(manager_diff) <= threshold:
                 continue
 
             diff_data[question] = {"team_diff1": team_diff}
+            manager_diff_data[question]={"manager_diff1": manager_diff}
 
         sorted_diff_data = dict(
-            sorted(diff_data.items(), key=lambda item: item[1].get('team_diff1', 0), reverse=True)
+            sorted(diff_data.items(), key=lambda item: item[1].get('team_diff1', 0), reverse=True) 
+
         )
-        return sorted_diff_data
+
+        sorted_manager_diff_data=dict(
+                        sorted(manager_diff_data.items(), key=lambda item: item[1].get('manager_diff1', 0), reverse=True)
+        )
+        
+        return sorted_diff_data,sorted_manager_diff_data
     
 
     @staticmethod
@@ -207,8 +228,10 @@ class CommonFunctions:
 
         all_questions = set(record1.keys()) | set(record2.keys()) | set(record3.keys())
         diff_data = {}
+        manager_diff_data={}
 
         team_score_key = "Subordinates"
+        manager_score_key="Manager"
         threshold = 0.1
 
         for question in all_questions:
@@ -219,16 +242,33 @@ class CommonFunctions:
             v1 = groups1.get(team_score_key)
             v2 = groups2.get(team_score_key)
             v3 = groups3.get(team_score_key)
+
+            m1=groups1.get(manager_score_key)
+            m2=groups2.get(manager_score_key)
+            m3=groups3.get(manager_score_key)
+
             if v1 is None or v2 is None or v3 is None:
+                continue
+            if m1 is None or m2 is None or m3 is None:
                 continue
 
             team_diff1 = round(v1 - v2, 2)
             team_diff2 = round(v2 - v3, 2)
+            manager_diff_1=round(m1 - m2,2)
+            manager_diff_2=round(m2 - m3,2)
+
             if abs(team_diff1) <= threshold or abs(team_diff2) <= threshold:
                 continue
+            if abs(manager_diff_1) <= threshold or abs(manager_diff_2) <= threshold:
+                continue
+            
             diff_data[question] = {
                 "team_diff1": team_diff1,
-                "team_diff2": team_diff2
+                "team_diff2": team_diff2,
+            }
+            manager_diff_data[question]={
+                "manager_diff_1": manager_diff_1,
+                "manager_diff_2": manager_diff_2
             }
 
         sorted_diff_data = dict(
@@ -238,7 +278,14 @@ class CommonFunctions:
                     reverse=True
                 )
             )
-        return sorted_diff_data
+        sorted_manager_diff_data = dict(
+                sorted(
+                    manager_diff_data.items(),
+                    key=lambda item: item[1].get("manager_diff_1", 0),
+                    reverse=True
+                )
+            )
+        return sorted_diff_data, sorted_manager_diff_data
     
     
     @staticmethod

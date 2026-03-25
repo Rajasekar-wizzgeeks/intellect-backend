@@ -214,6 +214,7 @@ Return ONLY valid JSON:
     
     "Representative comment from grouping comments (xN)",
     "Next group (xN)",
+    ...
     "Single ungrouped comment",
     ...  
   ]
@@ -403,6 +404,7 @@ STEP 6: GROUPING EXECUTION
 Example:
 - "App is slow"  
 - "app is slow"  
+- "App has good ui"
 Output: "App is slow (x2)"  
 
 
@@ -442,8 +444,7 @@ POSITIVE:
 
 - Intent > wording  
 - Meaning > keywords  
-- Prefer UNDER-grouping over WRONG grouping  
-- If unsure → DO NOT group  
+- Prefer UNDER-grouping over WRONG grouping   
 
 --------------------------------------------------
 
@@ -457,7 +458,6 @@ Return ONLY valid JSON:
     "Representative comment from grouping comments (xN)",
     "Next group (xN)",
     "Single ungrouped comment",
-    ...  
 ]
   ]
 }

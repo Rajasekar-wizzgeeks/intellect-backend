@@ -7,6 +7,7 @@ from collections import defaultdict
 import asyncio
 import re
 import os
+from datetime import datetime
 
 from Utils.common import CommonFunctions
 from Controllers.llmGenerationController import LLMGenerationController
@@ -25,7 +26,10 @@ from Controllers.schemas import (
 )
 
 class FeedbackController:
-
+    def __init__(self):
+        self.now = datetime.now()
+        self.formatted_date = self.now.strftime("%d %b, %Y")
+    
     async def start_feedback_excel_base_job(self, file):
         headers = {
             "Cache-Control": "no-cache",
@@ -64,11 +68,12 @@ class FeedbackController:
                     name = file1_data[0].get("Employee Name") or file1_data[0].get("Name") or "Employee Name"
 
                     comparision_data = {}
+                    manager_comparision_data = {}
                     if len(_files) == 2:
                         file2_data = read_excel_records(_files[1])
                         f1 = CommonFunctions.all_question_wise_data(file1_data)
                         f2 = CommonFunctions.all_question_wise_data(file2_data)
-                        comparision_data = CommonFunctions.find_comparision_year_data(f1, f2)
+                        comparision_data,manager_comparision_data = CommonFunctions.find_comparision_year_data(f1, f2)
                         print(f"DEBUG: Comparison data (2 files): {bool(comparision_data)}")
 
                     if len(_files) == 3:
@@ -77,7 +82,7 @@ class FeedbackController:
                         f1 = CommonFunctions.all_question_wise_data(file1_data)
                         f2 = CommonFunctions.all_question_wise_data(file2_data)
                         f3 = CommonFunctions.all_question_wise_data(file3_data)
-                        comparision_data = CommonFunctions.find_comparision_multi_year_data(f1, f2, f3)
+                        comparision_data,manager_comparision_data = CommonFunctions.find_comparision_multi_year_data(f1, f2, f3)
                         print(f"DEBUG: Comparison data (3 files): {bool(comparision_data)}")
 
                     data = file1_data
@@ -186,6 +191,7 @@ class FeedbackController:
                     return {
                         "name": name,
                         "comparision_average": comparision_data,
+                        "manager_comparision_data":manager_comparision_data,
                         "total_response": total_response,
                         "competency_summary_overall": competencies,
                         "right_culture_competency": right_culture_competency,
@@ -209,10 +215,13 @@ class FeedbackController:
                     yield "data: [DONE]\n\n"
                     return
 
-                payload = {'type': 'meta', 'name': pre.get('name')}
+                payload = {'type': 'meta', 'name': pre.get('name'),'date':self.formatted_date}
                 yield f"data: {json.dumps(payload)}\n\n"
 
                 payload = {'type': 'comparision_average', 'comparision_average': pre.get('comparision_average', {})}
+                yield f"data: {json.dumps(payload)}\n\n"
+
+                payload = {'type':'manager_comparision_average', 'manager_comparision_average': pre.get('manager_comparision_data', {})}
                 yield f"data: {json.dumps(payload)}\n\n"
 
                 payload = {'type': 'total_response', 'total_response': pre.get('total_response', {})}
