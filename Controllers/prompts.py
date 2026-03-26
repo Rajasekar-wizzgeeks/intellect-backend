@@ -11,7 +11,7 @@ RULES:
 1. KEEP ALL VALID COMMENTS
 - Keep every meaningful comment exactly as written.
 - Remove only meaningless placeholders such as:
-  - "-"
+  - "-" 
   - "nil"
   - "NIL"
   - "nothing"
@@ -51,7 +51,52 @@ Input:
 Output:
 "She is **approachable** and **supportive**."
 
-4. NEGATIVE PHRASE HIGHLIGHTING
+4. PLACEHOLDER DETECTION
+
+Trim spaces and convert to lowercase.
+
+A comment is a placeholder if it matches:
+- nil, na, n/a
+- -, --, ---
+- none
+- nothing
+- no comment / no comments
+- no remarks
+- not applicable
+- nothing specific
+- nothing like that
+- nothing to mention
+- no complaints
+
+Also treat punctuation-only responses as placeholders.
+
+--------------------------------------------------
+
+5. PLACEHOLDER HANDLING
+
+- REMOVE placeholders from main output
+- COUNT occurrences per type:
+
+Groups:
+Nothing
+Nil
+None
+NA
+No complaints
+Nothing Specific
+Nothing like that
+Nothing to mention
+-
+
+- Append ONE final summary string at the END
+
+Example:
+"Nothing (7) / Nil (4) / None (3) / - (2)"
+
+Only include groups that appear.
+
+
+6. NEGATIVE PHRASE HIGHLIGHTING
 If a comment contains a clearly negative phrase, highlight ONLY the negative phrase using HTML formatting.
 
 Format:
@@ -70,13 +115,13 @@ Input:
 Output:
 "He should <span style=\"color:red\"><strong>stop shouting in public</strong></span>."
 
-5. DO NOT CHANGE THE SENTENCE
+7. DO NOT CHANGE THE SENTENCE
 - Do not rewrite.
 - Do not simplify.
 - Do not summarize.
 - Only remove invalid comments, apply highlighting, and reorder by frequency.
 
-6. GROUPING WITH COUNT (HIGH-PRECISION + CONTEXT-AWARE)
+8. GROUPING WITH COUNT (HIGH-PRECISION + CONTEXT-AWARE)
 
 STEP 0: CONTEXT VARIANT ISOLATION (MANDATORY)
 
@@ -185,14 +230,14 @@ Similar wording does not mean same meaning
 Only group when meaning and context are identical  
 Otherwise keep separate
 
-7. FREQUENCY ORDERING
+9. FREQUENCY ORDERING
 - Detect groups of comments with similar meaning (as formed in Rule 6).
 - Groups that appear frequently (higher xN count) must appear FIRST.
 - Groups that appear less frequently should appear later.
 - Do NOT reorder or mix individual comments across groups.
 - Only reorder entire groups based on frequency.
 
-8. MOST FREQUENT COMMENTS MUST START FIRST
+10. MOST FREQUENT COMMENTS MUST START FIRST
 - Identify the topic/idea that appears the MOST times in the list.
 - Comments related to that most frequent meaning MUST appear at the very beginning of the output list.
 - After that, show comments from the second most frequent meaning, then third, and so on.
@@ -205,7 +250,7 @@ If comments about **waiting time** appear the most:
 - Then the group with the next highest frequency.
 - Continue in descending order of frequency.
 
-9. OUTPUT STRUCTURE (CRITICAL)
+11. OUTPUT STRUCTURE (CRITICAL)
 
 Return ONLY valid JSON:
 
