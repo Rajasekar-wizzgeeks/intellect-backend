@@ -16,6 +16,8 @@ from Controllers.prompts import (
     STOP_PROMPT,
     STAND_OUT_LEADER_SIMPLE_PROMPT,
     WORKPLACE_CULTURE_PROMPT,
+    REGROUPING_CONTINUE_PROMPT,
+    REGROUPING_STOP_PROMPT
 )
 from Controllers.schemas import (
     CONTINUE_FEEDBACK_SCHEMA,
@@ -389,7 +391,35 @@ class FeedbackController:
                     yield f"data: {json.dumps(payload)}\n\n"
                     yield "data: [DONE]\n\n"
                     return
-                payload = {'type': 'continue_doing_thing', 'data': result.get('structured', {}).get('continue_doing', [])}
+                second_pass_input = result.get('structured', {}).get('continue_doing', [])
+
+                llm_task_second_pass = asyncio.create_task(asyncio.to_thread(
+                    CommonFunctions.timed_task,
+                    "LLM continue_doing_second_pass",
+                    controller.analysis_comment_to_generate,
+                    second_pass_input,
+                    REGROUPING_CONTINUE_PROMPT,
+                    CONTINUE_FEEDBACK_SCHEMA,
+                ))
+
+                while not llm_task_second_pass.done():
+                    payload = {'type': 'processing'}
+                    yield f"data: {json.dumps(payload)}\n\n"
+                    await asyncio.sleep(15)
+
+                result_second_pass = await llm_task_second_pass
+                if not isinstance(result_second_pass, dict):
+                    payload = {'type': 'error', 'error': 'Invalid LLM response'}
+                    yield f"data: {json.dumps(payload)}\n\n"
+                    yield "data: [DONE]\n\n"
+                    return
+                if result_second_pass.get('error'):
+                    payload = {'type': 'error', 'error': result_second_pass.get('error')}
+                    yield f"data: {json.dumps(payload)}\n\n"
+                    yield "data: [DONE]\n\n"
+                    return
+
+                payload = {'type': 'continue_doing_thing', 'data': result_second_pass.get('structured', {}).get('continue_doing', [])}
                 yield f"data: {json.dumps(payload)}\n\n"
                 yield "data: [DONE]\n\n"
 
@@ -495,7 +525,36 @@ class FeedbackController:
                     yield f"data: {json.dumps(payload)}\n\n"
                     yield "data: [DONE]\n\n"
                     return
-                payload = {'type': 'stop_doing_thing', 'data': result.get('structured', {}).get('stop_doing', [])}
+
+                second_pass_input = result.get('structured', {}).get('stop_doing', [])
+
+                llm_task_second_pass = asyncio.create_task(asyncio.to_thread(
+                    CommonFunctions.timed_task,
+                    "LLM stop_doing_second_pass",
+                    controller.analysis_comment_to_generate,
+                    second_pass_input,
+                    REGROUPING_STOP_PROMPT,
+                    STOP_FEEDBACK_SCHEMA,
+                ))
+
+                while not llm_task_second_pass.done():
+                    payload = {'type': 'processing'}
+                    yield f"data: {json.dumps(payload)}\n\n"
+                    await asyncio.sleep(15)
+
+                result_second_pass = await llm_task_second_pass
+                if not isinstance(result_second_pass, dict):
+                    payload = {'type': 'error', 'error': 'Invalid LLM response'}
+                    yield f"data: {json.dumps(payload)}\n\n"
+                    yield "data: [DONE]\n\n"
+                    return
+                if result_second_pass.get('error'):
+                    payload = {'type': 'error', 'error': result_second_pass.get('error')}
+                    yield f"data: {json.dumps(payload)}\n\n"
+                    yield "data: [DONE]\n\n"
+                    return
+
+                payload = {'type': 'stop_doing_thing', 'data': result_second_pass.get('structured', {}).get('stop_doing', [])}
                 yield f"data: {json.dumps(payload)}\n\n"
                 yield "data: [DONE]\n\n"
 

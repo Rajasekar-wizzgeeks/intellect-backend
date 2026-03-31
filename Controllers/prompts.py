@@ -144,114 +144,167 @@ Output:
 - Do not summarize.
 - Only remove invalid comments, apply highlighting, and reorder by frequency.
 
-8. GROUPING WITH COUNT (HIGH-PRECISION + CONTEXT-AWARE)
+8.GROUPING WITH COUNT (HIGH-PRECISION + CONTEXT-AWARE)
 
-STEP 0: CONTEXT VARIANT ISOLATION (MANDATORY)
+You are an expert qualitative analyst working on "Continue Doing" feedback.
 
-- Comments that appear similar may carry different meanings depending on context.
-- These are context variants.
+Your goal is to cluster ONLY CLEAR, SINGLE ACTIONS without losing any unique meaning.
 
-RULE:
-- If two comments could belong to different contexts → DO NOT GROUP
+────────────────────────────
+STEP 1: ATOMIC ACTION EXTRACTION
+────────────────────────────
+Break each response into atomic ACTION statements.
 
-Examples:
-- "Good UI" (appreciation) vs "UI should be good" (expectation) → DO NOT GROUP  
-- "Fast delivery" (positive feedback) vs "Need fast delivery" (request) → DO NOT GROUP  
+Definition of ACTION:
+- A specific behavior the person is doing or should continue doing
 
-
-STEP 1: NORMALIZATION CHECK (FOR MATCHING ONLY)
-
-For comparison ONLY:
-- Ignore casing, punctuation, spacing
-
-Group ONLY if context is identical
-
-Examples:
-- "Good service" vs "good service!!" → GROUP  
-- "Good service" (praise) vs "Need good service" (expectation) → DO NOT GROUP  
-
-
-STEP 2: STRICT INTENT IDENTIFICATION
-
-- Identify intent independently for each comment.
-- Do NOT assume intent from wording similarity.
-
-Examples:
-- "Add dark mode" → request  
-- "Dark mode is nice" → appreciation  
-→ DO NOT GROUP  
-
-
-STEP 3: STRICT GROUPING CONDITIONS
-
-Group ONLY if ALL are identical:
-
-- Intent  
-- Action  
-- Purpose  
-- Target  
-- Specificity level  
-- Context variant (MANDATORY)  
-
-If ANY mismatch → DO NOT GROUP  
-
-
-STEP 4: MEANING EQUIVALENCE CHECK
-
-Ask:
-"Can one replace the other without changing meaning in original context?"
-
-- YES → GROUP  
-- NO → DO NOT GROUP  
-
-Examples:
-- "App is slow" vs "Application is slow" → GROUP  
-- "App is slow" vs "App feels slightly slow sometimes" → DO NOT GROUP  
-
-
-STEP 5: ANTI-FALSE GROUPING (CRITICAL)
-
-NEVER group if categories differ:
-
-- Appreciation vs Expectation → DO NOT GROUP  
-- Observation vs Suggestion → DO NOT GROUP  
-- Complaint vs Request → DO NOT GROUP  
-- Neutral vs Improvement hint → DO NOT GROUP  
-
-Examples:
-- "Great support" vs "Support should improve" → DO NOT GROUP  
-- "Login takes time" vs "Improve login speed" → DO NOT GROUP  
-
-
-STEP 6: GROUPING EXECUTION
-
-- Select ONE original comment as representative (DO NOT modify it)  
-- Add (xN) ONLY if N >= 2  
-- Keep single comments as-is  
+Rules:
+- Each line must contain ONLY ONE action
+- If a response has multiple actions → split into separate lines
+- Preserve original wording
+- Do NOT summarize
 
 Example:
-- "App is slow"  
-- "app is slow"  
-Output: "App is slow (x2)"  
+"Continue supporting and motivating teachers"
+→
+- Continue supporting teachers
+- Continue motivating teachers
+
+────────────────────────────
+STEP 2: CLASSIFICATION (STRICT FILTER)
+────────────────────────────
+Classify EACH action into ONE category:
+
+A. PURE ACTION (Eligible for clustering)
+- Clear, single, repeatable behavior
+✔ Example: "Conduct regular meetings with teachers"
+
+B. MULTI-ACTION (Reject)
+- Contains more than one action
+✔ Example: "Support and guide teachers"
+
+C. CONTEXT / EXPLANATION (Reject)
+- Includes reason, outcome, or situation
+✔ Example: "Meet teachers to help them grow"
+
+D. SUGGESTION WITH CONDITION (Reject)
+- Includes "so that", "which helps", "in order to"
+✔ Example: "Give feedback so teachers improve"
+
+E. GENERAL PRAISE / NO ACTION (Reject)
+✔ Example: "She is doing great"
+
+IMPORTANT RULE:
+ONLY PURE ACTIONS can be clustered  
+ALL others MUST go to UNGROUPED
+
+────────────────────────────
+STEP 3: STRICT ACTION CLUSTERING
+────────────────────────────
+Cluster ONLY PURE ACTION statements.
+
+STRICT MATCH RULE:
+Group actions ONLY if:
+- They describe the SAME action
+- They are interchangeable in meaning
+- No additional intent or outcome is added
+
+DO NOT GROUP if:
+- One is broader or narrower
+- One includes extra detail (frequency, purpose, audience)
+- One implies a different behavior
+
+Examples:
+
+✔ VALID GROUP:
+- "Conduct meetings regularly"
+- "Hold regular meetings"
+
+✖ INVALID GROUP:
+- "Meet teachers regularly"
+- "Meet teachers and give feedback"  ← extra action
+
+If unsure → DO NOT GROUP
+
+────────────────────────────
+STEP 4: VALIDATION (MANDATORY)
+────────────────────────────
+For each cluster:
+- Compare every pair of actions
+- Ask: "Are these EXACTLY the same action?"
+
+If NO:
+→ Remove the mismatched item
+→ Move to UNGROUPED
+
+────────────────────────────
+STEP 5: OUTPUT FORMAT
+────────────────────────────
+
+Clusters (sorted by frequency):
+
+<Action Label – verb-based> (xN)
+- action
+- action
+
+Ungrouped / Unique Actions:
+(MUST include ALL of the following)
+- Multi-action items
+- Contextual statements
+- Suggestions with explanation
+- Praise / general comments
+- Any action that did not EXACTLY match others
+
+────────────────────────────
+CRITICAL SAFETY RULES
+────────────────────────────
+
+1. NEVER group multiple actions together  
+2. NEVER group action + outcome  
+3. NEVER group action + context  
+4. NEVER modify meaning to fit a cluster  
+5. NEVER drop any response  
+6. When unsure → KEEP UNGROUPED  
+
+────────────────────────────
+FINAL CHECK
+────────────────────────────
+Before finishing, confirm:
+
+- Every cluster contains ONLY identical actions  
+- No multi-action statements are grouped  
+- No contextual reasoning is grouped  
+- No insights are lost  
+
+If any rule is violated → correct it.
 
 
-STEP 7: SAFETY PRIORITY
+OUTPUT
 
-Always prioritize:
+Return ONLY valid JSON:
 
-- Context over wording  
-- Context over similarity  
-- Meaning over structure  
+{
+  "continue_doing": [
 
-FINAL RULE:
-- If ANY doubt exists → DO NOT GROUP  
+    "Representative comment (xN)",
+    "comment from group",
+    "comment from group",
 
+    "Single comment",
 
-KEY PRINCIPLE
+    "Nothing (xN)"
+  ]
+}
 
-Similar wording does not mean same meaning  
-Only group when meaning and context are identical  
-Otherwise keep separate
+--------------------------------------------------
+
+TEXT FORMATTING
+
+POSITIVE:
+- Bold (**text**) ONLY existing positive traits
+- Do NOT invent or over-highlight
+
+Return ONLY JSON.
 
 9. FREQUENCY ORDERING
 - Detect groups of comments with similar meaning (as formed in Rule 6).
@@ -281,7 +334,12 @@ Return ONLY valid JSON:
   "continue_doing": [
     
     "Representative comment from grouping comments (xN)",
+    "comment from the group",
+    "comment from the group",
+    ...
     "Next group (xN)",
+    "comment from the group",
+    "comment from the group",
     ...
     "Single ungrouped comment",
     ...  
@@ -409,114 +467,166 @@ Group B: OTHER
 
 6. GROUPING WITH COUNT (HIGH-PRECISION + CONTEXT-AWARE)
 
-STEP 0: CONTEXT VARIANT ISOLATION (MANDATORY)
+You are an expert qualitative analyst working on "Stop Doing" feedback.
 
-- Comments that appear similar may carry different meanings depending on context.
-- These are context variants.
+Your goal is to cluster ONLY CLEAR, SINGLE, NEGATIVE ACTIONS (behaviors to stop)
+WITHOUT losing any specificity or meaning.
 
-RULE:
-- If two comments could belong to different contexts → DO NOT GROUP
+Precision is critical. Do NOT assume, generalize, or merge loosely related items.
 
-Examples:
-- "Good UI" (appreciation) vs "UI should be good" (expectation) → DO NOT GROUP  
-- "Fast delivery" (positive feedback) vs "Need fast delivery" (request) → DO NOT GROUP  
+────────────────────────────
+STEP 1: ATOMIC ACTION EXTRACTION
+────────────────────────────
+Break each response into atomic ACTION statements.
 
+Definition of ACTION:
+- A specific behavior that should be reduced, avoided, or stopped
 
-STEP 1: NORMALIZATION CHECK (FOR MATCHING ONLY)
-
-For comparison ONLY:
-- Ignore casing, punctuation, spacing
-
-Group ONLY if context is identical
-
-Examples:
-- "Good service" vs "good service!!" → GROUP  
-- "Good service" (praise) vs "Need good service" (expectation) → DO NOT GROUP  
-
-
-STEP 2: STRICT INTENT IDENTIFICATION
-
-- Identify intent independently for each comment.
-- Do NOT assume intent from wording similarity.
-
-Examples:
-- "Add dark mode" → request  
-- "Dark mode is nice" → appreciation  
-→ DO NOT GROUP  
-
-
-STEP 3: STRICT GROUPING CONDITIONS
-
-Group ONLY if ALL are identical:
-
-- Intent  
-- Action  
-- Purpose  
-- Target  
-- Specificity level  
-- Context variant (MANDATORY)  
-
-If ANY mismatch → DO NOT GROUP  
-
-
-STEP 4: MEANING EQUIVALENCE CHECK
-
-Ask:
-"Can one replace the other without changing meaning in original context?"
-
-- YES → GROUP  
-- NO → DO NOT GROUP  
-
-Examples:
-- "App is slow" vs "Application is slow" → GROUP  
-- "App is slow" vs "App feels slightly slow sometimes" → DO NOT GROUP  
-
-
-STEP 5: ANTI-FALSE GROUPING (CRITICAL)
-
-NEVER group if categories differ:
-
-- Appreciation vs Expectation → DO NOT GROUP  
-- Observation vs Suggestion → DO NOT GROUP  
-- Complaint vs Request → DO NOT GROUP  
-- Neutral vs Improvement hint → DO NOT GROUP  
-
-Examples:
-- "Great support" vs "Support should improve" → DO NOT GROUP  
-- "Login takes time" vs "Improve login speed" → DO NOT GROUP  
-
-
-STEP 6: GROUPING EXECUTION
-
-- Select ONE original comment as representative (DO NOT modify it)  
-- Add (xN) ONLY if N >= 2  
-- Keep single comments as-is  
+Rules:
+- Each line must contain ONLY ONE action
+- If a response contains multiple actions → split them
+- Preserve original wording
+- Do NOT summarize or generalize
 
 Example:
-- "App is slow"  
-- "app is slow"  
-- "App has good ui"
-Output: "App is slow (x2)"  
+"Avoid shouting and reacting harshly in public"
+→
+- Avoid shouting in public
+- Avoid reacting harshly in public
 
+────────────────────────────
+STEP 2: CLASSIFICATION (STRICT GATE)
+────────────────────────────
+Classify EACH action into ONE category:
 
-STEP 7: SAFETY PRIORITY
+A. PURE NEGATIVE ACTION (Eligible for clustering)
+- One clear behavior to stop
+- No explanation, no outcome, no additional idea
+✔ Example: "Avoid shouting in meetings"
 
-Always prioritize:
+B. MULTI-ACTION (Reject)
+- Contains more than one behavior
+✔ Example: "Avoid shouting and reacting harshly"
 
-- Context over wording  
-- Context over similarity  
-- Meaning over structure  
+C. CONTEXTUAL / EXPLANATORY (Reject)
+- Includes reason, outcome, or situation
+✔ Example: "Avoid shouting so staff feel respected"
 
-FINAL RULE:
-- If ANY doubt exists → DO NOT GROUP  
+D. CONDITIONAL / SUGGESTIVE (Reject)
+- Includes conditions, suggestions, or indirect phrasing
+✔ Example: "It would be better if manual work is reduced"
 
+E. GENERIC / UNCLEAR (Reject)
+✔ Example: "Be better in decisions"
 
-KEY PRINCIPLE
+IMPORTANT RULE:
+ONLY PURE NEGATIVE ACTIONS can be clustered  
+ALL others MUST go to UNGROUPED
 
-Similar wording does not mean same meaning  
-Only group when meaning and context are identical  
-Otherwise keep separate
+────────────────────────────
+STEP 3: STRICT CLUSTERING (NO ASSUMPTIONS)
+────────────────────────────
+Cluster ONLY PURE NEGATIVE ACTION statements.
 
+STRICT MATCH RULE:
+Group ONLY if:
+- They describe EXACTLY the same behavior
+- They are fully interchangeable in meaning
+- SAME subject + SAME context + SAME intensity
+
+DO NOT GROUP if ANY difference exists in:
+
+1. SUBJECT
+- student vs teacher vs staff vs general
+
+2. CONTEXT
+- public vs private vs meeting vs classroom
+
+3. BEHAVIOR TYPE
+- reacting vs shouting vs concluding vs assuming
+
+4. SCOPE
+- specific vs broad
+
+5. INTENT
+- fairness vs investigation vs decision-making
+
+CRITICAL RULE:
+If you need to "interpret" or "assume similarity" → DO NOT GROUP
+
+Examples:
+
+✔ VALID:
+- "Avoid manual work"
+- "Reduce manual work"
+
+✖ INVALID:
+- "Avoid reacting to student mistakes in public"
+- "Avoid shouting in front of others"  ← NOT SAME
+
+✖ INVALID:
+- "Do not conclude without investigation"
+- "Avoid partiality"  ← DIFFERENT IDEAS
+
+If unsure → DO NOT GROUP
+
+────────────────────────────
+STEP 4: VALIDATION (MANDATORY)
+────────────────────────────
+For EACH cluster:
+
+- Compare every pair of statements
+- Ask:
+  "Can these be enforced as the EXACT SAME behavior in real life?"
+
+If NO:
+→ Remove the mismatched item
+→ Move it to UNGROUPED
+
+────────────────────────────
+STEP 5: OUTPUT FORMAT
+────────────────────────────
+
+Clusters (sorted by frequency):
+
+<Exact Behavior to Stop> (xN)
+- statement
+- statement
+
+Ungrouped / Unique Actions:
+(MUST include ALL of the following)
+
+- Multi-action statements
+- Contextual or explanatory statements
+- Conditional or suggestive statements
+- Generic / unclear statements
+- Any action that did not EXACTLY match a cluster
+
+────────────────────────────
+CRITICAL SAFETY RULES
+────────────────────────────
+
+1. NEVER group actions with different subjects (student vs teacher vs general)  
+2. NEVER group different behaviors (shouting ≠ reacting ≠ concluding)  
+3. NEVER group action + reason  
+4. NEVER assume similarity  
+5. NEVER drop or hide any statement  
+6. It is BETTER to have MORE clusters than WRONG clusters  
+7. When in doubt → KEEP UNGROUPED  
+
+────────────────────────────
+FINAL CHECK (MANDATORY)
+────────────────────────────
+
+Before finishing, confirm:
+
+- No cluster mixes different behaviors  
+- No cluster mixes different contexts  
+- No cluster mixes different subjects  
+- No assumptions were made  
+- No statements were lost  
+
+If any rule is violated → correct it.
 --------------------------------------------------
 
 8. TEXT FORMATTING
@@ -547,7 +657,13 @@ Return ONLY valid JSON:
   "stop_doing": [
     
     "Representative comment from grouping comments (xN)",
+    "comment 1 from the group",
+    "comment 2 from the group",
+    ...
     "Next group (xN)",
+    "comment 1 from the group",
+    "comment 2 from the group",
+    ...
     "Single ungrouped comment",
 ]
   ]
@@ -922,3 +1038,415 @@ FINAL CHECK BEFORE OUTPUT
 Return ONLY the JSON output.
 """
 
+REGROUPING_CONTINUE_PROMPT = """You are a STRICT Feedback Comment Re-Grouping Engine.
+
+INPUT:
+You will receive a JSON array of ALREADY PROCESSED comments.
+
+Your task is ONLY to VALIDATE and CORRECT grouping accuracy.
+
+--------------------------------------------------
+
+CORE RULES:
+
+- DO NOT change wording
+- DO NOT remove comments
+- DO NOT add comments
+- DO NOT create duplicates
+- DO NOT change order
+- DO NOT modify formatting
+- DO NOT reprocess anything
+
+ONLY fix grouping if incorrect.
+
+--------------------------------------------------
+
+GROUPING LOGIC (HIGH-PRECISION + CONTEXT-AWARE)
+
+You are an expert qualitative analyst working on "Continue Doing" feedback.
+
+Your goal is to cluster ONLY CLEAR, SINGLE ACTIONS without losing any unique meaning.
+
+────────────────────────────
+STEP 1: ATOMIC ACTION EXTRACTION
+────────────────────────────
+Break each response into atomic ACTION statements.
+
+Definition of ACTION:
+- A specific behavior the person is doing or should continue doing
+
+Rules:
+- Each line must contain ONLY ONE action
+- If a response has multiple actions → split into separate lines
+- Preserve original wording
+- Do NOT summarize
+
+Example:
+"Continue supporting and motivating teachers"
+→
+- Continue supporting teachers
+- Continue motivating teachers
+
+────────────────────────────
+STEP 2: CLASSIFICATION (STRICT FILTER)
+────────────────────────────
+Classify EACH action into ONE category:
+
+A. PURE ACTION (Eligible for clustering)
+- Clear, single, repeatable behavior
+✔ Example: "Conduct regular meetings with teachers"
+
+B. MULTI-ACTION (Reject)
+- Contains more than one action
+✔ Example: "Support and guide teachers"
+
+C. CONTEXT / EXPLANATION (Reject)
+- Includes reason, outcome, or situation
+✔ Example: "Meet teachers to help them grow"
+
+D. SUGGESTION WITH CONDITION (Reject)
+- Includes "so that", "which helps", "in order to"
+✔ Example: "Give feedback so teachers improve"
+
+E. GENERAL PRAISE / NO ACTION (Reject)
+✔ Example: "She is doing great"
+
+IMPORTANT RULE:
+ONLY PURE ACTIONS can be clustered  
+ALL others MUST go to UNGROUPED
+
+────────────────────────────
+STEP 3: STRICT ACTION CLUSTERING
+────────────────────────────
+Cluster ONLY PURE ACTION statements.
+
+STRICT MATCH RULE:
+Group actions ONLY if:
+- They describe the SAME action
+- They are interchangeable in meaning
+- No additional intent or outcome is added
+
+DO NOT GROUP if:
+- One is broader or narrower
+- One includes extra detail (frequency, purpose, audience)
+- One implies a different behavior
+
+Examples:
+
+✔ VALID GROUP:
+- "Conduct meetings regularly"
+- "Hold regular meetings"
+
+✖ INVALID GROUP:
+- "Meet teachers regularly"
+- "Meet teachers and give feedback"  ← extra action
+
+If unsure → DO NOT GROUP
+
+────────────────────────────
+STEP 4: VALIDATION (MANDATORY)
+────────────────────────────
+For each cluster:
+- Compare every pair of actions
+- Ask: "Are these EXACTLY the same action?"
+
+If NO:
+→ Remove the mismatched item
+→ Move to UNGROUPED
+
+────────────────────────────
+STEP 5: OUTPUT FORMAT
+────────────────────────────
+
+Clusters (sorted by frequency):
+
+<Action Label – verb-based> (xN)
+- action
+- action
+
+Ungrouped / Unique Actions:
+(MUST include ALL of the following)
+- Multi-action items
+- Contextual statements
+- Suggestions with explanation
+- Praise / general comments
+- Any action that did not EXACTLY match others
+
+────────────────────────────
+CRITICAL SAFETY RULES
+────────────────────────────
+
+1. NEVER group multiple actions together  
+2. NEVER group action + outcome  
+3. NEVER group action + context  
+4. NEVER modify meaning to fit a cluster  
+5. NEVER drop any response  
+6. When unsure → KEEP UNGROUPED  
+
+────────────────────────────
+FINAL CHECK
+────────────────────────────
+Before finishing, confirm:
+
+- Every cluster contains ONLY identical actions  
+- No multi-action statements are grouped  
+- No contextual reasoning is grouped  
+- No insights are lost  
+
+If any rule is violated → correct it.
+--------------------------------------------------
+
+OUTPUT
+
+Return ONLY valid JSON:
+
+{
+  "continue_doing": [
+
+    "Representative comment (xN)",
+    "comment from group",
+    "comment from group",
+
+    "Single comment",
+
+    "Nothing (xN)"
+  ]
+}
+
+--------------------------------------------------
+
+TEXT FORMATTING
+
+POSITIVE:
+- Bold (**text**) ONLY existing positive traits
+- Do NOT invent or over-highlight
+
+Return ONLY JSON.
+"""
+
+REGROUPING_STOP_PROMPT = """You are a STRICT Feedback Comment Re-Grouping Engine.
+
+INPUT:
+You will receive a JSON array of ALREADY PROCESSED comments.
+
+Your task is ONLY to VALIDATE and CORRECT grouping accuracy.
+
+--------------------------------------------------
+
+CORE RULES:
+
+- DO NOT change wording
+- DO NOT remove comments
+- DO NOT add comments
+- DO NOT create duplicates
+- DO NOT change order
+- DO NOT modify formatting
+- DO NOT change classification (NEGATIVE / OTHER)
+- DO NOT reprocess anything
+
+ONLY fix grouping if incorrect.
+
+--------------------------------------------------
+
+GROUPING LOGIC (HIGH-PRECISION + CONTEXT-AWARE)
+
+You are an expert qualitative analyst working on "Stop Doing" feedback.
+
+Your goal is to cluster ONLY CLEAR, SINGLE, NEGATIVE ACTIONS (behaviors to stop)
+WITHOUT losing any specificity or meaning.
+
+Precision is critical. Do NOT assume, generalize, or merge loosely related items.
+
+────────────────────────────
+STEP 1: ATOMIC ACTION EXTRACTION
+────────────────────────────
+Break each response into atomic ACTION statements.
+
+Definition of ACTION:
+- A specific behavior that should be reduced, avoided, or stopped
+
+Rules:
+- Each line must contain ONLY ONE action
+- If a response contains multiple actions → split them
+- Preserve original wording
+- Do NOT summarize or generalize
+
+Example:
+"Avoid shouting and reacting harshly in public"
+→
+- Avoid shouting in public
+- Avoid reacting harshly in public
+
+────────────────────────────
+STEP 2: CLASSIFICATION (STRICT GATE)
+────────────────────────────
+Classify EACH action into ONE category:
+
+A. PURE NEGATIVE ACTION (Eligible for clustering)
+- One clear behavior to stop
+- No explanation, no outcome, no additional idea
+✔ Example: "Avoid shouting in meetings"
+
+B. MULTI-ACTION (Reject)
+- Contains more than one behavior
+✔ Example: "Avoid shouting and reacting harshly"
+
+C. CONTEXTUAL / EXPLANATORY (Reject)
+- Includes reason, outcome, or situation
+✔ Example: "Avoid shouting so staff feel respected"
+
+D. CONDITIONAL / SUGGESTIVE (Reject)
+- Includes conditions, suggestions, or indirect phrasing
+✔ Example: "It would be better if manual work is reduced"
+
+E. GENERIC / UNCLEAR (Reject)
+✔ Example: "Be better in decisions"
+
+IMPORTANT RULE:
+ONLY PURE NEGATIVE ACTIONS can be clustered  
+ALL others MUST go to UNGROUPED
+
+────────────────────────────
+STEP 3: STRICT CLUSTERING (NO ASSUMPTIONS)
+────────────────────────────
+Cluster ONLY PURE NEGATIVE ACTION statements.
+
+STRICT MATCH RULE:
+Group ONLY if:
+- They describe EXACTLY the same behavior
+- They are fully interchangeable in meaning
+- SAME subject + SAME context + SAME intensity
+
+DO NOT GROUP if ANY difference exists in:
+
+1. SUBJECT
+- student vs teacher vs staff vs general
+
+2. CONTEXT
+- public vs private vs meeting vs classroom
+
+3. BEHAVIOR TYPE
+- reacting vs shouting vs concluding vs assuming
+
+4. SCOPE
+- specific vs broad
+
+5. INTENT
+- fairness vs investigation vs decision-making
+
+CRITICAL RULE:
+If you need to "interpret" or "assume similarity" → DO NOT GROUP
+
+Examples:
+
+✔ VALID:
+- "Avoid manual work"
+- "Reduce manual work"
+
+✖ INVALID:
+- "Avoid reacting to student mistakes in public"
+- "Avoid shouting in front of others"  ← NOT SAME
+
+✖ INVALID:
+- "Do not conclude without investigation"
+- "Avoid partiality"  ← DIFFERENT IDEAS
+
+If unsure → DO NOT GROUP
+
+────────────────────────────
+STEP 4: VALIDATION (MANDATORY)
+────────────────────────────
+For EACH cluster:
+
+- Compare every pair of statements
+- Ask:
+  "Can these be enforced as the EXACT SAME behavior in real life?"
+
+If NO:
+→ Remove the mismatched item
+→ Move it to UNGROUPED
+
+────────────────────────────
+STEP 5: OUTPUT FORMAT
+────────────────────────────
+
+Clusters (sorted by frequency):
+
+<Exact Behavior to Stop> (xN)
+- statement
+- statement
+
+Ungrouped / Unique Actions:
+(MUST include ALL of the following)
+
+- Multi-action statements
+- Contextual or explanatory statements
+- Conditional or suggestive statements
+- Generic / unclear statements
+- Any action that did not EXACTLY match a cluster
+
+────────────────────────────
+CRITICAL SAFETY RULES
+────────────────────────────
+
+1. NEVER group actions with different subjects (student vs teacher vs general)  
+2. NEVER group different behaviors (shouting ≠ reacting ≠ concluding)  
+3. NEVER group action + reason  
+4. NEVER assume similarity  
+5. NEVER drop or hide any statement  
+6. It is BETTER to have MORE clusters than WRONG clusters  
+7. When in doubt → KEEP UNGROUPED  
+
+────────────────────────────
+FINAL CHECK (MANDATORY)
+────────────────────────────
+
+Before finishing, confirm:
+
+- No cluster mixes different behaviors  
+- No cluster mixes different contexts  
+- No cluster mixes different subjects  
+- No assumptions were made  
+- No statements were lost  
+
+If any rule is violated → correct it.
+
+--------------------------------------------------
+
+OUTPUT
+
+Return ONLY valid JSON:
+
+{
+  "stop_doing": [
+
+    "Representative comment (xN)",
+    "comment from group",
+    "comment from group",
+
+    "Single comment",
+
+    "Nothing (xN)"
+  ]
+}
+
+--------------------------------------------------
+
+TEXT FORMATTING
+
+NEGATIVE:
+- Highlight ONLY exact negative phrase using:
+<span style="color:red"><strong>...</strong></span>
+
+--------------------------------------------------
+
+IMPORTANT PRINCIPLES
+
+- Intent > wording  
+- Meaning > keywords  
+- Prefer UNDER-grouping over WRONG grouping  
+
+--------------------------------------------------
+
+Return ONLY JSON.
+"""
