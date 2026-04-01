@@ -74,49 +74,37 @@ Also treat punctuation-only responses as placeholders.
 
 5. PLACEHOLDER HANDLING
 
-* REMOVE all placeholder-type comments from the main grouped output.
+* DO NOT remove placeholder-type comments.
+* DO NOT group or aggregate them.
 
-* Treat ALL the following variants as a SINGLE unified group mapped to "Nothing":
+* Treat the following as placeholder comments:
 
-Nothing
-Nil
-None
-NA
-No complaints
-Nothing Specific
-Nothing like that
-Nothing to mention
+Nothing  
+Nil  
+None  
+NA  
+No complaints  
+Nothing Specific  
+Nothing like that  
+Nothing to mention  
 
 RULES:
 
-* Normalize and count ALL above variants together.
-* Do NOT create separate groups for each variant.
-* Do NOT display these individually anywhere in the output.
-* Always aggregate them into one final group.
+* Keep each placeholder EXACTLY as originally written.
+* Do NOT normalize into a single label like "Nothing".
+* Do NOT count or combine them.
+* Do NOT display any frequency (NO xN).
 
-FINAL OUTPUT RULE:
+ORDERING RULE:
 
-* Append ONLY ONE summary line at the END:
-  "Nothing (xN)"
-
-Where:
-
-* N = total count of ALL placeholder variants combined.
-
-Example:
-
-Input:
-"Nothing", "Nil", "None", "NA", "No complaints", "Nothing Specific", "Nothing like that", "Nothing to mention"
-
-Output:
-"Nothing (x8)"
+* ALL placeholder comments must be placed at the VERY END of the output list.
+* This rule applies regardless of their frequency.
 
 IMPORTANT:
 
-* Include this line ONLY if at least one placeholder exists.
-* Do NOT split into multiple groups (e.g., "Nil (x2)", "None (x1)" is NOT allowed).
-* Always combine into a single "Nothing (xN)" entry.
-
+* Each placeholder must appear as an individual entry.
+* Maintain one-to-one mapping (each input → one output).
+* Do NOT merge, summarize, or modify wording.
 
 
 6. NEGATIVE PHRASE HIGHLIGHTING
@@ -144,147 +132,47 @@ Output:
 - Do not summarize.
 - Only remove invalid comments, apply highlighting, and reorder by frequency.
 
-8. GROUPING WITH COUNT (HIGH-PRECISION + CONTEXT-AWARE)
 
-STEP 0: CONTEXT VARIANT ISOLATION (MANDATORY)
+8. MOST FREQUENT COMMENTS MUST START FIRST
 
-- Comments that appear similar may carry different meanings depending on context.
-- These are context variants.
+- Identify comments that share the same or very similar context/meaning.
+- Determine which context appears most frequently.
 
-RULE:
-- If two comments could belong to different contexts → DO NOT GROUP
+ORDERING RULE:
 
-Examples:
-- "Good UI" (appreciation) vs "UI should be good" (expectation) → DO NOT GROUP  
-- "Fast delivery" (positive feedback) vs "Need fast delivery" (request) → DO NOT GROUP  
-
-
-STEP 1: NORMALIZATION CHECK (FOR MATCHING ONLY)
-
-For comparison ONLY:
-- Ignore casing, punctuation, spacing
-
-Group ONLY if context is identical
-
-Examples:
-- "Good service" vs "good service!!" → GROUP  
-- "Good service" (praise) vs "Need good service" (expectation) → DO NOT GROUP  
-
-
-STEP 2: STRICT INTENT IDENTIFICATION
-
-- Identify intent independently for each comment.
-- Do NOT assume intent from wording similarity.
-
-Examples:
-- "Add dark mode" → request  
-- "Dark mode is nice" → appreciation  
-→ DO NOT GROUP  
-
-
-STEP 3: STRICT GROUPING CONDITIONS
-
-Group ONLY if ALL are identical:
-
-- Intent  
-- Action  
-- Purpose  
-- Target  
-- Specificity level  
-- Context variant (MANDATORY)  
-
-If ANY mismatch → DO NOT GROUP  
-
-
-STEP 4: MEANING EQUIVALENCE CHECK
-
-Ask:
-"Can one replace the other without changing meaning in original context?"
-
-- YES → GROUP  
-- NO → DO NOT GROUP  
-
-Examples:
-- "App is slow" vs "Application is slow" → GROUP  
-- "App is slow" vs "App feels slightly slow sometimes" → DO NOT GROUP  
-
-
-STEP 5: ANTI-FALSE GROUPING (CRITICAL)
-
-NEVER group if categories differ:
-
-- Appreciation vs Expectation → DO NOT GROUP  
-- Observation vs Suggestion → DO NOT GROUP  
-- Complaint vs Request → DO NOT GROUP  
-- Neutral vs Improvement hint → DO NOT GROUP  
-
-Examples:
-- "Great support" vs "Support should improve" → DO NOT GROUP  
-- "Login takes time" vs "Improve login speed" → DO NOT GROUP  
-
-
-STEP 6: GROUPING EXECUTION
-
-- Select ONE original comment as representative (DO NOT modify it)  
-- Add (xN) ONLY if N >= 2  
-- Keep single comments as-is  
-
-Example:
-- "App is slow"  
-- "app is slow"  
-Output: "App is slow (x2)"  
-
-
-STEP 7: SAFETY PRIORITY
-
-Always prioritize:
-
-- Context over wording  
-- Context over similarity  
-- Meaning over structure  
-
-FINAL RULE:
-- If ANY doubt exists → DO NOT GROUP  
-
-
-KEY PRINCIPLE
-
-Similar wording does not mean same meaning  
-Only group when meaning and context are identical  
-Otherwise keep separate
-
-9. FREQUENCY ORDERING
-- Detect groups of comments with similar meaning (as formed in Rule 6).
-- Groups that appear frequently (higher xN count) must appear FIRST.
-- Groups that appear less frequently should appear later.
-- Do NOT reorder or mix individual comments across groups.
-- Only reorder entire groups based on frequency.
-
-10. MOST FREQUENT COMMENTS MUST START FIRST
-- Identify the topic/idea that appears the MOST times in the list.
-- Comments related to that most frequent meaning MUST appear at the very beginning of the output list.
-- After that, show comments from the second most frequent meaning, then third, and so on.
-- Maintain original sentences; only reorder them.
-
-Example:
-If comments about **waiting time** appear the most:
-- All waiting-time related comments (group) should appear first.
-- Then the group with the next highest frequency.
-- Then the group with the next highest frequency.
+- Comments belonging to the most frequent context must appear first.
+- Then comments from the next most frequent context.
 - Continue in descending order of frequency.
 
-11. OUTPUT STRUCTURE (CRITICAL)
+IMPORTANT:
+
+- Do NOT merge or group comments.
+- Do NOT create representative comments.
+- Do NOT display frequency counts (NO xN).
+- Keep every comment exactly as originally written.
+- Only reorder comments based on frequency of similar context.
+
+- If similarity is unclear → treat comments as separate.
+
+Example:
+
+If comments about **waiting time** appear most frequently:
+- All such comments should appear first (individually)
+- Then comments from the next most frequent context
+- Continue in descending order of frequency
+
+9. OUTPUT STRUCTURE (CRITICAL)
 
 Return ONLY valid JSON:
 
 {
   "continue_doing": [
     
-    "Representative comment from grouping comments (xN)",
-    "Next group (xN)",
+    "Original comment (same-context, high-frequency group first)",
+    "Original comment (same-context, high-frequency group first)",
+    "Original comment (next frequent context)",
+    "Original comment",
     ...
-    "Single ungrouped comment",
-    ...  
   ]
 }
 
@@ -301,11 +189,11 @@ INPUT:
 You will receive a JSON array (list) of comment strings.
 
 OBJECTIVE:
-Clean, organize, group, and reorder comments with STRICT logic:
+Clean, organize, and reorder comments with STRICT logic:
 
-1. NEGATIVE comments first (frequency-grouped)
-2. Then ALL OTHER comments (frequency-grouped)
-3. Then a final placeholder summary line
+1. NEGATIVE comments first (ordered by frequency)
+2. Then ALL OTHER comments (ordered by frequency)
+3. Placeholder comments must always appear at the very end (individually)
 
 --------------------------------------------------
 
@@ -319,7 +207,6 @@ RULES
 2. NO MERGING (STRICT)
 - Do NOT merge, combine, or deduplicate comments
 - Do NOT rewrite, summarize, or modify wording
-- Meaning groups are ONLY for grouping and ordering
 
 --------------------------------------------------
 
@@ -346,49 +233,37 @@ Also treat punctuation-only responses as placeholders.
 
 4. PLACEHOLDER HANDLING
 
-* REMOVE all placeholder-type comments from the main grouped output.
+* DO NOT remove placeholder-type comments.
+* DO NOT group or aggregate them.
 
-* Treat ALL the following variants as a SINGLE unified group mapped to "Nothing":
+* Treat the following as placeholder comments:
 
-Nothing
-Nil
-None
-NA
-No complaints
-Nothing Specific
-Nothing like that
-Nothing to mention
+Nothing  
+Nil  
+None  
+NA  
+No complaints  
+Nothing Specific  
+Nothing like that  
+Nothing to mention  
 
 RULES:
 
-* Normalize and count ALL above variants together.
-* Do NOT create separate groups for each variant.
-* Do NOT display these individually anywhere in the output.
-* Always aggregate them into one final group.
+* Keep each placeholder EXACTLY as originally written.
+* Do NOT normalize into a single label like "Nothing".
+* Do NOT count or combine them.
+* Do NOT display any frequency (NO xN).
 
-FINAL OUTPUT RULE:
+ORDERING RULE:
 
-* Append ONLY ONE summary line at the END:
-  "Nothing (xN)"
-
-Where:
-
-* N = total count of ALL placeholder variants combined.
-
-Example:
-
-Input:
-"Nothing", "Nil", "None", "NA", "No complaints", "Nothing Specific", "Nothing like that", "Nothing to mention"
-
-Output:
-"Nothing (x8)"
+* ALL placeholder comments must be placed at the VERY END of the output list.
+* This rule applies regardless of their frequency.
 
 IMPORTANT:
 
-* Include this line ONLY if at least one placeholder exists.
-* Do NOT split into multiple groups (e.g., "Nil (x2)", "None (x1)" is NOT allowed).
-* Always combine into a single "Nothing (xN)" entry.
-
+* Each placeholder must appear as an individual entry.
+* Maintain one-to-one mapping (each input → one output).
+* Do NOT merge, summarize, or modify wording.
 
 --------------------------------------------------
 
@@ -407,119 +282,7 @@ Group B: OTHER
 
 --------------------------------------------------
 
-6. GROUPING WITH COUNT (HIGH-PRECISION + CONTEXT-AWARE)
-
-STEP 0: CONTEXT VARIANT ISOLATION (MANDATORY)
-
-- Comments that appear similar may carry different meanings depending on context.
-- These are context variants.
-
-RULE:
-- If two comments could belong to different contexts → DO NOT GROUP
-
-Examples:
-- "Good UI" (appreciation) vs "UI should be good" (expectation) → DO NOT GROUP  
-- "Fast delivery" (positive feedback) vs "Need fast delivery" (request) → DO NOT GROUP  
-
-
-STEP 1: NORMALIZATION CHECK (FOR MATCHING ONLY)
-
-For comparison ONLY:
-- Ignore casing, punctuation, spacing
-
-Group ONLY if context is identical
-
-Examples:
-- "Good service" vs "good service!!" → GROUP  
-- "Good service" (praise) vs "Need good service" (expectation) → DO NOT GROUP  
-
-
-STEP 2: STRICT INTENT IDENTIFICATION
-
-- Identify intent independently for each comment.
-- Do NOT assume intent from wording similarity.
-
-Examples:
-- "Add dark mode" → request  
-- "Dark mode is nice" → appreciation  
-→ DO NOT GROUP  
-
-
-STEP 3: STRICT GROUPING CONDITIONS
-
-Group ONLY if ALL are identical:
-
-- Intent  
-- Action  
-- Purpose  
-- Target  
-- Specificity level  
-- Context variant (MANDATORY)  
-
-If ANY mismatch → DO NOT GROUP  
-
-
-STEP 4: MEANING EQUIVALENCE CHECK
-
-Ask:
-"Can one replace the other without changing meaning in original context?"
-
-- YES → GROUP  
-- NO → DO NOT GROUP  
-
-Examples:
-- "App is slow" vs "Application is slow" → GROUP  
-- "App is slow" vs "App feels slightly slow sometimes" → DO NOT GROUP  
-
-
-STEP 5: ANTI-FALSE GROUPING (CRITICAL)
-
-NEVER group if categories differ:
-
-- Appreciation vs Expectation → DO NOT GROUP  
-- Observation vs Suggestion → DO NOT GROUP  
-- Complaint vs Request → DO NOT GROUP  
-- Neutral vs Improvement hint → DO NOT GROUP  
-
-Examples:
-- "Great support" vs "Support should improve" → DO NOT GROUP  
-- "Login takes time" vs "Improve login speed" → DO NOT GROUP  
-
-
-STEP 6: GROUPING EXECUTION
-
-- Select ONE original comment as representative (DO NOT modify it)  
-- Add (xN) ONLY if N >= 2  
-- Keep single comments as-is  
-
-Example:
-- "App is slow"  
-- "app is slow"  
-- "App has good ui"
-Output: "App is slow (x2)"  
-
-
-STEP 7: SAFETY PRIORITY
-
-Always prioritize:
-
-- Context over wording  
-- Context over similarity  
-- Meaning over structure  
-
-FINAL RULE:
-- If ANY doubt exists → DO NOT GROUP  
-
-
-KEY PRINCIPLE
-
-Similar wording does not mean same meaning  
-Only group when meaning and context are identical  
-Otherwise keep separate
-
---------------------------------------------------
-
-8. TEXT FORMATTING
+7. TEXT FORMATTING
 
 NEGATIVE:
 - Highlight ONLY exact negative phrase using:
@@ -531,7 +294,7 @@ POSITIVE:
 
 --------------------------------------------------
 
-9. IMPORTANT PRINCIPLES
+8. IMPORTANT PRINCIPLES
 
 - Intent > wording  
 - Meaning > keywords  
@@ -539,17 +302,45 @@ POSITIVE:
 
 --------------------------------------------------
 
+9. FREQUENCY-BASED ORDERING (MANDATORY)
+
+- Do NOT group or aggregate comments
+- Do NOT create representative comments
+- Do NOT display frequency counts (NO xN)
+
+INSTEAD:
+
+- Identify comments that appear more frequently (including very similar wording)
+- Use this ONLY for ordering
+
+ORDERING RULE:
+
+- Within NEGATIVE:
+  - Most frequent comments → TOP
+  - Less frequent → BELOW
+
+- Within OTHER:
+  - Most frequent comments → TOP
+  - Less frequent → BELOW
+
+IMPORTANT:
+
+- Each comment must remain exactly as written
+- Do NOT merge or combine comments
+- If similarity is unclear → treat as separate
+
 10. OUTPUT STRUCTURE (CRITICAL)
 
 Return ONLY valid JSON:
 
 {
   "stop_doing": [
-    
-    "Representative comment from grouping comments (xN)",
-    "Next group (xN)",
-    "Single ungrouped comment",
-]
+    "Original negative comment",
+    "Original negative comment",
+    "Original other comment",
+    "Original other comment",
+    "Placeholder comment",
+    "Placeholder comment"
   ]
 }
 
@@ -557,12 +348,12 @@ Return ONLY valid JSON:
 
 OUTPUT RULES
 
-- NEGATIVE groups FIRST
-- Then OTHER groups
-- Placeholder summary LAST
-- Each group must be an array
-- Do NOT mix raw strings (except final summary)
-- Every comment must appear exactly once
+- NEGATIVE comments FIRST (ordered by frequency)
+- Then OTHER comments (ordered by frequency)
+- Placeholder comments ALWAYS LAST (individual entries)
+- Do NOT group comments
+- Do NOT use summary lines
+- Each comment must appear exactly once
 - No explanations
 - Only JSON output
 """
