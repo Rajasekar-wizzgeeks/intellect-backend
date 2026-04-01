@@ -281,7 +281,17 @@ Return ONLY valid JSON:
   "continue_doing": [
     
     "Representative comment from grouping comments (xN)",
+    "comments_belong_to_this_group":[
+    "Comment 1 form the group",
+    "Comment 2 form the group",
+    ....
+    ]
+    ...
     "Next group (xN)",
+    "comments_belong_to_this_group":[
+     "Comment 1 form the group",
+    "Comment 2 form the group",
+    ]
     ...
     "Single ungrouped comment",
     ...  
@@ -547,9 +557,20 @@ Return ONLY valid JSON:
   "stop_doing": [
     
     "Representative comment from grouping comments (xN)",
+    "comments_belong_to_this_group":[
+     "Comment 1 form the group",
+    "Comment 2 form the group",
+    ....
+    ]
+    ...
     "Next group (xN)",
+    "comments_belong_to_this_group":[
+     "Comment 1 form the group",
+    "Comment 2 form the group",
+    ]
+    ...
     "Single ungrouped comment",
-]
+    ...  
   ]
 }
 
