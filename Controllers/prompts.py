@@ -133,33 +133,122 @@ Output:
 - Only remove invalid comments, apply highlighting, and reorder by frequency.
 
 
-8. MOST FREQUENT COMMENTS MUST START FIRST
-
-- Identify comments that share the same or very similar context/meaning.
-- Determine which context appears most frequently.
-
-ORDERING RULE:
-
-- Comments belonging to the most frequent context must appear first.
-- Then comments from the next most frequent context.
-- Continue in descending order of frequency.
+8. STRICT FREQUENCY CLUSTERING (CONTEXT-AWARE, NO GROUPING)
 
 IMPORTANT:
+- This is NOT grouping
+- Do NOT merge comments
+- Do NOT create (xN)
+- Do NOT combine or rewrite comments
 
-- Do NOT merge or group comments.
-- Do NOT create representative comments.
-- Do NOT display frequency counts (NO xN).
-- Keep every comment exactly as originally written.
-- Only reorder comments based on frequency of similar context.
+This logic is ONLY for ORDERING.
 
-- If similarity is unclear → treat comments as separate.
+--------------------------------------------------
+
+STEP 0: CONTEXT VARIANT ISOLATION (MANDATORY)
+
+- Similar wording may have different meanings → treat as DIFFERENT clusters
+
+Examples:
+- "He communicates well" (positive) vs "He should communicate well" (expectation) → DO NOT CLUSTER
+- "Stops shouting" vs "Should stop shouting" → DO NOT CLUSTER
+
+--------------------------------------------------
+
+STEP 1: NORMALIZATION CHECK (FOR MATCHING ONLY)
+
+For comparison ONLY:
+- Ignore casing, punctuation, spacing
+
+BUT:
+- Cluster ONLY if meaning is identical
 
 Example:
+- "He shouts" vs "he shouts!!" → SAME cluster  
+- "He shouts" vs "He sometimes shouts" → DIFFERENT cluster  
 
-If comments about **waiting time** appear most frequently:
-- All such comments should appear first (individually)
-- Then comments from the next most frequent context
-- Continue in descending order of frequency
+--------------------------------------------------
+
+STEP 2: STRICT INTENT IDENTIFICATION
+
+- Identify intent per comment independently
+
+DO NOT cluster across intent types:
+
+- Complaint vs Suggestion → DO NOT CLUSTER  
+- Observation vs Instruction → DO NOT CLUSTER  
+- Criticism vs Expectation → DO NOT CLUSTER  
+
+Example:
+- "He is rude" (complaint)  
+- "He should be polite" (suggestion)  
+→ DO NOT CLUSTER  
+
+--------------------------------------------------
+
+STEP 3: STRICT CLUSTERING CONDITIONS
+
+Cluster comments ONLY if ALL match:
+
+- Intent  
+- Action  
+- Target  
+- Meaning  
+- Context variant (MANDATORY)
+
+If ANY mismatch → DO NOT CLUSTER
+
+--------------------------------------------------
+
+STEP 4: MEANING EQUIVALENCE CHECK
+
+Ask:
+"Can these comments replace each other without changing meaning?"
+
+- YES → SAME cluster  
+- NO → DIFFERENT clusters  
+
+Example:
+- "He shouts in meetings" vs "He yells in meetings" → SAME cluster  
+- "He shouts in meetings" vs "He shouts sometimes" → DIFFERENT clusters  
+
+--------------------------------------------------
+
+STEP 5: ANTI-FALSE CLUSTERING (CRITICAL)
+
+NEVER cluster across:
+
+- Complaint vs Request  
+- Suggestion vs Observation  
+- Negative vs Neutral  
+- Negative vs Positive  
+
+--------------------------------------------------
+
+STEP 6: CLUSTER-BASED ORDERING (NO MERGING)
+
+- Count how many comments belong to each cluster
+- Order clusters by frequency (highest first)
+
+WITHIN EACH CLUSTER:
+- Keep ALL comments exactly as written
+- Do NOT merge or modify
+- Keep them CONTIGUOUS (no interleaving)
+
+--------------------------------------------------
+
+STEP 7: APPLY SEPARATELY
+
+- First apply clustering to NEGATIVE comments
+- Then apply clustering to OTHER comments
+
+--------------------------------------------------
+
+FINAL RULE:
+
+- Clustering is ONLY for ordering
+- NO merging, NO summarizing, NO (xN)
+- If ANY doubt → treat as separate cluster
 
 9. OUTPUT STRUCTURE (CRITICAL)
 
@@ -302,32 +391,122 @@ POSITIVE:
 
 --------------------------------------------------
 
-9. FREQUENCY-BASED ORDERING (MANDATORY)
-
-- Do NOT group or aggregate comments
-- Do NOT create representative comments
-- Do NOT display frequency counts (NO xN)
-
-INSTEAD:
-
-- Identify comments that appear more frequently (including very similar wording)
-- Use this ONLY for ordering
-
-ORDERING RULE:
-
-- Within NEGATIVE:
-  - Most frequent comments → TOP
-  - Less frequent → BELOW
-
-- Within OTHER:
-  - Most frequent comments → TOP
-  - Less frequent → BELOW
+9. STRICT FREQUENCY CLUSTERING (CONTEXT-AWARE, NO GROUPING)
 
 IMPORTANT:
+- This is NOT grouping
+- Do NOT merge comments
+- Do NOT create (xN)
+- Do NOT combine or rewrite comments
 
-- Each comment must remain exactly as written
-- Do NOT merge or combine comments
-- If similarity is unclear → treat as separate
+This logic is ONLY for ORDERING.
+
+--------------------------------------------------
+
+STEP 0: CONTEXT VARIANT ISOLATION (MANDATORY)
+
+- Similar wording may have different meanings → treat as DIFFERENT clusters
+
+Examples:
+- "He communicates well" (positive) vs "He should communicate well" (expectation) → DO NOT CLUSTER
+- "Stops shouting" vs "Should stop shouting" → DO NOT CLUSTER
+
+--------------------------------------------------
+
+STEP 1: NORMALIZATION CHECK (FOR MATCHING ONLY)
+
+For comparison ONLY:
+- Ignore casing, punctuation, spacing
+
+BUT:
+- Cluster ONLY if meaning is identical
+
+Example:
+- "He shouts" vs "he shouts!!" → SAME cluster  
+- "He shouts" vs "He sometimes shouts" → DIFFERENT cluster  
+
+--------------------------------------------------
+
+STEP 2: STRICT INTENT IDENTIFICATION
+
+- Identify intent per comment independently
+
+DO NOT cluster across intent types:
+
+- Complaint vs Suggestion → DO NOT CLUSTER  
+- Observation vs Instruction → DO NOT CLUSTER  
+- Criticism vs Expectation → DO NOT CLUSTER  
+
+Example:
+- "He is rude" (complaint)  
+- "He should be polite" (suggestion)  
+→ DO NOT CLUSTER  
+
+--------------------------------------------------
+
+STEP 3: STRICT CLUSTERING CONDITIONS
+
+Cluster comments ONLY if ALL match:
+
+- Intent  
+- Action  
+- Target  
+- Meaning  
+- Context variant (MANDATORY)
+
+If ANY mismatch → DO NOT CLUSTER
+
+--------------------------------------------------
+
+STEP 4: MEANING EQUIVALENCE CHECK
+
+Ask:
+"Can these comments replace each other without changing meaning?"
+
+- YES → SAME cluster  
+- NO → DIFFERENT clusters  
+
+Example:
+- "He shouts in meetings" vs "He yells in meetings" → SAME cluster  
+- "He shouts in meetings" vs "He shouts sometimes" → DIFFERENT clusters  
+
+--------------------------------------------------
+
+STEP 5: ANTI-FALSE CLUSTERING (CRITICAL)
+
+NEVER cluster across:
+
+- Complaint vs Request  
+- Suggestion vs Observation  
+- Negative vs Neutral  
+- Negative vs Positive  
+
+--------------------------------------------------
+
+STEP 6: CLUSTER-BASED ORDERING (NO MERGING)
+
+- Count how many comments belong to each cluster
+- Order clusters by frequency (highest first)
+
+WITHIN EACH CLUSTER:
+- Keep ALL comments exactly as written
+- Do NOT merge or modify
+- Keep them CONTIGUOUS (no interleaving)
+
+--------------------------------------------------
+
+STEP 7: APPLY SEPARATELY
+
+- First apply clustering to NEGATIVE comments
+- Then apply clustering to OTHER comments
+
+--------------------------------------------------
+
+FINAL RULE:
+
+- Clustering is ONLY for ordering
+- NO merging, NO summarizing, NO (xN)
+- If ANY doubt → treat as separate cluster
 
 10. OUTPUT STRUCTURE (CRITICAL)
 
