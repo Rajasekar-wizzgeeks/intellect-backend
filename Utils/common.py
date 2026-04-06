@@ -613,7 +613,7 @@ class CommonFunctions:
 
         return {
             "Subordinates": sub_strengths[:3],
-            "Manager": mgr_strengths[:3]
+            "Manager": mgr_strengths
         }
 
 
