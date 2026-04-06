@@ -214,7 +214,29 @@ Example:
 
 --------------------------------------------------
 
-STEP 5: ANTI-FALSE CLUSTERING (CRITICAL)
+--------------------------------------------------
+
+STEP 5: MANDATORY VALIDATION (FINAL DECISION GATE)
+
+Before placing a comment into a cluster (for ordering), verify:
+
+- Meaning matches EXACTLY (no extra or missing idea)
+- Intent, action, target, and context are fully identical
+- No additional qualifiers (e.g., "sometimes", "usually", "should")
+
+FINAL CHECK:
+Ask:
+"Can these comments replace each other WITHOUT changing meaning at all?"
+
+- YES → Same cluster  
+- NO or EVEN SLIGHT DIFFERENCE → DO NOT CLUSTER  
+
+CRITICAL:
+If there is ANY uncertainty → treat as a separate cluster
+
+--------------------------------------------------
+
+STEP 6: ANTI-FALSE CLUSTERING (CRITICAL)
 
 NEVER cluster across:
 
@@ -225,7 +247,7 @@ NEVER cluster across:
 
 --------------------------------------------------
 
-STEP 6: CLUSTER-BASED ORDERING (NO MERGING)
+STEP 7: CLUSTER-BASED ORDERING (NO MERGING)
 
 - Count how many comments belong to each cluster
 - Order clusters by frequency (highest first)
@@ -237,7 +259,7 @@ WITHIN EACH CLUSTER:
 
 --------------------------------------------------
 
-STEP 7: APPLY SEPARATELY
+STEP 8: APPLY SEPARATELY
 
 - First apply clustering to NEGATIVE comments
 - Then apply clustering to OTHER comments
@@ -472,7 +494,43 @@ Example:
 
 --------------------------------------------------
 
-STEP 5: ANTI-FALSE CLUSTERING (CRITICAL)
+--------------------------------------------------
+
+STEP 4: MEANING EQUIVALENCE CHECK
+
+Ask:
+"Can these comments replace each other without changing meaning?"
+
+- YES → SAME cluster  
+- NO → DIFFERENT clusters  
+
+Example:
+- "He shouts in meetings" vs "He yells in meetings" → SAME cluster  
+- "He shouts in meetings" vs "He shouts sometimes" → DIFFERENT clusters  
+
+--------------------------------------------------
+
+STEP 5: MANDATORY VALIDATION (FINAL DECISION GATE)
+
+Before placing a comment into a cluster (for ordering), verify:
+
+- Meaning matches EXACTLY (no extra or missing idea)
+- Intent, action, target, and context are fully identical
+- No additional qualifiers (e.g., "sometimes", "usually", "should")
+
+FINAL CHECK:
+Ask:
+"Can these comments replace each other WITHOUT changing meaning at all?"
+
+- YES → Same cluster  
+- NO or EVEN SLIGHT DIFFERENCE → DO NOT CLUSTER  
+
+CRITICAL:
+If there is ANY uncertainty → treat as a separate cluster
+
+--------------------------------------------------
+
+STEP 6: ANTI-FALSE CLUSTERING (CRITICAL)
 
 NEVER cluster across:
 
@@ -483,7 +541,7 @@ NEVER cluster across:
 
 --------------------------------------------------
 
-STEP 6: CLUSTER-BASED ORDERING (NO MERGING)
+STEP 7: CLUSTER-BASED ORDERING (NO MERGING)
 
 - Count how many comments belong to each cluster
 - Order clusters by frequency (highest first)
@@ -495,7 +553,7 @@ WITHIN EACH CLUSTER:
 
 --------------------------------------------------
 
-STEP 7: APPLY SEPARATELY
+STEP 8: APPLY SEPARATELY
 
 - First apply clustering to NEGATIVE comments
 - Then apply clustering to OTHER comments
