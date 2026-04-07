@@ -4,14 +4,23 @@ CONTINUE_FEEDBACK_SCHEMA = {
         "continue_doing": {
             "type": "array",
             "items": {
-                "type": "string"
-            },
-            "description": "Formatted comments describing practices to continue."
-        },
+                "type": "object",
+                "properties": {
+                    "representative_comment": {
+                        "type": "string"
+                    },
+                    "comments_belong_to_this_group": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "required": ["representative_comment"]
+            }
+        }
     },
-    "required": [
-        "continue_doing",
-    ],
+    "required": ["continue_doing"]
 }
 
 STOP_FEEDBACK_SCHEMA = {
@@ -19,15 +28,27 @@ STOP_FEEDBACK_SCHEMA = {
     "properties": {
         "stop_doing": {
             "type": "array",
+            "description": "List of grouped and ungrouped feedback comments describing practices to stop.",
             "items": {
-                "type": "string"
-            },
-            "description": "Formatted comments describing practices to stop."
-        },
+                "type": "object",
+                "properties": {
+                    "representative_comment": {
+                        "type": "string",
+                        "description": "Representative comment. Includes (xN) if grouped."
+                    },
+                    "comments_belong_to_this_group": {
+                        "type": "array",
+                        "description": "All comments belonging to this group. Empty if single.",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "required": ["representative_comment"]
+            }
+        }
     },
-    "required": [
-        "stop_doing"
-    ]
+    "required": ["stop_doing"]
 }
 
 PREDOMINANT_SCHEMA = {
@@ -35,15 +56,27 @@ PREDOMINANT_SCHEMA = {
     "properties": {
         "predominant_leader_thing": {
             "type": "array",
+            "description": "List of grouped and ungrouped comments describing predominant leadership traits.",
             "items": {
-                "type": "string"
-            },
-            "description": "Formatted comments describing predominant leadership traits."
+                "type": "object",
+                "properties": {
+                    "representative_comment": {
+                        "type": "string",
+                        "description": "Representative leadership trait comment. Includes (xN) if grouped."
+                    },
+                    "comments_belong_to_this_group": {
+                        "type": "array",
+                        "description": "All comments belonging to this group. Empty if single.",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "required": ["representative_comment"]
+            }
         }
     },
-    "required": [
-        "predominant_leader_thing"
-    ]
+    "required": ["predominant_leader_thing"]
 }
 
 STAND_OUT_LEADER_THING_SCHEMA = {
