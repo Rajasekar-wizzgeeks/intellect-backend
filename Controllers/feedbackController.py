@@ -178,9 +178,9 @@ class FeedbackController:
                     action_data = CommonFunctions.get_workplace_culture_data(general_competency, "action_area")
 
                     get_non_self = CommonFunctions.get_non_self_comments
-                    continue_words = get_non_self(continue_data)
-                    stop_words = get_non_self(stop_data)
-                    predominant_words = get_non_self(stand_out)
+                    continue_words = CommonFunctions.dedupe_exact_comments(get_non_self(continue_data))
+                    stop_words = CommonFunctions.dedupe_exact_comments(get_non_self(stop_data))
+                    predominant_words = CommonFunctions.dedupe_exact_comments(get_non_self(stand_out))
 
                     workplace_culture_words = CommonFunctions.count_workplace_culture_words(workplace_culture)
                     stand_out_leader_words = CommonFunctions.count_workplace_culture_words(stand_out)
@@ -352,7 +352,7 @@ class FeedbackController:
                                 general_competency[question] = [r.get(col) for r in data]
 
                     continue_data = CommonFunctions.get_workplace_culture_data(general_competency, "continue_doing")
-                    continue_words = CommonFunctions.get_non_self_comments(continue_data)
+                    continue_words = CommonFunctions.dedupe_exact_comments(CommonFunctions.get_non_self_comments(continue_data))
                     return {"continue_words": continue_words}
 
                 pre = await asyncio.to_thread(preprocess_continue_sync, files)
@@ -458,7 +458,7 @@ class FeedbackController:
                                 general_competency[question] = [r.get(col) for r in data]
 
                     stop_data = CommonFunctions.get_workplace_culture_data(general_competency, "stop_doing")
-                    stop_words = CommonFunctions.get_non_self_comments(stop_data)
+                    stop_words = CommonFunctions.dedupe_exact_comments(CommonFunctions.get_non_self_comments(stop_data))
                     return {"stop_words": stop_words}
 
                 pre = await asyncio.to_thread(preprocess_stop_sync, files)

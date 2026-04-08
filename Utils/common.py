@@ -830,6 +830,37 @@ class CommonFunctions:
         return comments 
 
     @staticmethod
+    def dedupe_exact_comments(comments):
+        if not comments:
+            return []
+
+        def norm_key(s):
+            s_norm = str(s).strip().lower()
+            s_norm = re.sub(r"[^\w\s]", "", s_norm)
+            s_norm = re.sub(r"\s+", " ", s_norm).strip()
+            return s_norm
+
+        def cleanliness_score(s):
+            s_str = str(s)
+            punct = len(re.findall(r"[^\w\s]", s_str))
+            spaces = len(re.findall(r"\s{2,}", s_str))
+            return (punct, spaces, len(s_str))
+
+        seen = {}
+        out = []
+        for c in comments:
+            key = norm_key(c)
+            if key in seen:
+                idx = seen[key]
+                if cleanliness_score(c) < cleanliness_score(out[idx]):
+                    out[idx] = c
+                continue
+            seen[key] = len(out)
+            out.append(c)
+
+        return out
+
+    @staticmethod
     def timed_task(name, func, *args, **kwargs):
         start = time.time()
         thread_id = threading.get_ident()
