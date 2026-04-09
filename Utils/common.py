@@ -583,7 +583,7 @@ class CommonFunctions:
         mgr_strengths.sort(key=lambda x: x["score"], reverse=True)
 
         return {
-            "Subordinates": sub_strengths[:3],
+            "Subordinates": sub_strengths,
             "Manager": mgr_strengths
         }
 
@@ -612,7 +612,7 @@ class CommonFunctions:
         mgr_strengths.sort(key=lambda x: x["score"])
 
         return {
-            "Subordinates": sub_strengths[:3],
+            "Subordinates": sub_strengths,
             "Manager": mgr_strengths
         }
 
