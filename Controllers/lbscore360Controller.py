@@ -105,25 +105,32 @@ class LBscore360Controller:
                                 if question not in exceptItem:
                                     general_competency[question] = [r.get(col) for r in data]
                     behavioural_indications = CommonFunctions.lbscore_broken_down_by_behavioural_indications(category_data)
-                    overall_behavioural_indications=CommonFunctions.lbscore_overall_summary_of_scores(category_data)
+                    overall_behavioural_indications,feedbacks=CommonFunctions.lbscore_overall_summary_of_scores(category_data)
+                    hidden_strengths,blind_spots = CommonFunctions.get_highlights(behavioural_indications)
                     return {
                         "behavioural_indications": behavioural_indications,
                         "overall_behavioural_indications":overall_behavioural_indications,
-                        "general_competency": general_competency
+                        "general_competency": general_competency,
+                        "feedbacks":feedbacks,
+                        "hidden_strengths":hidden_strengths,
+                        "blind_spots":blind_spots
                       }
                     # yield json.dumps(file1_data)
                 pre = await asyncio.to_thread(preprocess_base_sync, files)
-
                 payload = {'type': 'behavioural_indications', 'data': pre.get('behavioural_indications', {})}
                 yield f"data: {json.dumps(payload)}\n\n"
+                payload = {'type': 'feedbacks', 'data': pre.get('feedbacks', {})}
+                yield f"data: {json.dumps(payload)}\n\n"
                 payload = {'type': 'overall_behavioural_indications', 'data': pre.get('overall_behavioural_indications', {})}
+                yield f"data: {json.dumps(payload)}\n\n"
+                payload = {'type': 'hidden_strengths', 'data': pre.get('hidden_strengths', {})}
+                yield f"data: {json.dumps(payload)}\n\n"
+                payload = {'type': 'blind_spots', 'data': pre.get('blind_spots', {})}
                 yield f"data: {json.dumps(payload)}\n\n"
                 payload = {'type': 'general_competency', 'data': pre.get('general_competency', {})}
                 yield f"data: {json.dumps(payload)}\n\n"
                 yield "data: [DONE]\n\n"
 
-                if not res:
-                    yield {"error": "No data found in uploaded file."}
             except Exception as e:
                 yield f"data: {json.dumps({'error': str(e)})}\n\n"
                 yield "data: [DONE]\n\n"
