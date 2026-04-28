@@ -55,6 +55,8 @@ class FeedbackController:
                     def read_excel_records(uploaded_file):
                         uploaded_file.file.seek(0)
                         df = pd.read_excel(uploaded_file.file, engine="openpyxl")
+                        if "Attribute Name" in df.columns:
+                            df = df.rename(columns={"Attribute Name": "Name"})
                         df = df.replace([np.nan, np.inf, -np.inf], None)
                         for col in df.columns:
                             if pd.api.types.is_datetime64_any_dtype(df[col]):
@@ -92,7 +94,7 @@ class FeedbackController:
 
                     if "Name" in data[0]:
                         right_culture = grouped["Creating the Right Culture"]
-                        leadership_style = grouped["Leadership Style"]
+                        leadership_style = grouped["Leadership Style"] or grouped["Leadership Personality & Style"]
                         leadership_staff_dev = grouped["Leadership for Staff Performance & Development"]
                         educational_quality = grouped["Educational Quality & Student Outcomes"]
                         engagement_with_management = grouped["Engagement with Management"]
@@ -136,7 +138,7 @@ class FeedbackController:
                                     general_competency[question] = [r.get(col) for r in data]
 
                         right_culture_competency = CommonFunctions.questionwise_avg_from_rating_lists(category_data.get('Creating the Right Culture', []))
-                        leadership_style_competency = CommonFunctions.questionwise_avg_from_rating_lists(category_data.get('Leadership Style', []))
+                        leadership_style_competency = CommonFunctions.questionwise_avg_from_rating_lists(category_data.get('Leadership Style', []) or category_data.get('Leadership Personality & Style', []))
                         leadership_staff_dev_competency = CommonFunctions.questionwise_avg_from_rating_lists(category_data.get('Leadership for Staff Performance & Development', []))
                         educational_quality_competency = CommonFunctions.questionwise_avg_from_rating_lists(category_data.get('Educational Quality & Student Outcomes', []))
                         engagement_with_management_competency = CommonFunctions.questionwise_avg_from_rating_lists(category_data.get('Engagement with Management', []))
@@ -313,6 +315,8 @@ class FeedbackController:
                     uploaded_file = _files[0]
                     uploaded_file.file.seek(0)
                     df = pd.read_excel(uploaded_file.file, engine="openpyxl")
+                    if "Attribute Name" in df.columns:
+                        df = df.rename(columns={"Attribute Name": "Name"})
                     df = df.replace([np.nan, np.inf, -np.inf], None)
                     for col in df.columns:
                         if pd.api.types.is_datetime64_any_dtype(df[col]):
@@ -420,6 +424,8 @@ class FeedbackController:
                     uploaded_file = _files[0]
                     uploaded_file.file.seek(0)
                     df = pd.read_excel(uploaded_file.file, engine="openpyxl")
+                    if "Attribute Name" in df.columns:
+                        df = df.rename(columns={"Attribute Name": "Name"})
                     df = df.replace([np.nan, np.inf, -np.inf], None)
                     for col in df.columns:
                         if pd.api.types.is_datetime64_any_dtype(df[col]):

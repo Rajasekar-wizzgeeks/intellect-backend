@@ -55,7 +55,8 @@ class CommonFunctions:
                     category_data.get('Creating the Right Culture', [])
                 )
             leadership_style_questionwise = CommonFunctions.questionwise_avg_from_rating_lists(
-                category_data.get('Leadership Style', [])
+                category_data.get('Leadership Style', []) or
+                category_data.get('Leadership Personality & Style', [])
             )
             leadership_staff_dev_questionwise = CommonFunctions.questionwise_avg_from_rating_lists(
                 category_data.get('Leadership for Staff Performance & Development', [])
