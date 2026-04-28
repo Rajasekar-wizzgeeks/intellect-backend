@@ -4,10 +4,9 @@ import time
 import threading
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+from collections import defaultdict
 
 class CommonFunctions:
-    
-    
 
     @staticmethod
     def grouped_question(records):
@@ -56,7 +55,8 @@ class CommonFunctions:
                     category_data.get('Creating the Right Culture', [])
                 )
             leadership_style_questionwise = CommonFunctions.questionwise_avg_from_rating_lists(
-                category_data.get('Leadership Style', [])
+                category_data.get('Leadership Style', []) or
+                category_data.get('Leadership Personality & Style', [])
             )
             leadership_staff_dev_questionwise = CommonFunctions.questionwise_avg_from_rating_lists(
                 category_data.get('Leadership for Staff Performance & Development', [])
@@ -861,6 +861,190 @@ class CommonFunctions:
         return out
 
     @staticmethod
+    def lbscore_broken_down_by_behavioural_indications(category_data):
+        def extract_score(value):
+            if not value:
+                return None
+
+            value = str(value)
+
+            parts = value.split("–")
+            try:
+                return int(parts[0].strip())
+            except:
+                return None
+        result=defaultdict(list)
+        if not isinstance(category_data,dict):
+            return {}
+        for category,category_items in category_data.items():
+            if "Feedback" in category:
+                continue
+
+            for category_item in category_items:
+                 for question,values in category_item.items():
+                    score = {}
+                    gap ={}
+                    highlight={}
+                    for rater_type,values in values.items():
+                        num = [extract_score(v) for v in values if extract_score(v) is not None ]
+                        avg = round(sum(num)/len(num)) if num else 0
+                        score[rater_type] = avg
+
+                    self_score = score.get("Self",0)
+                    
+                    def get_highlight(self_score,others_avg,diff_avg):
+                        if self_score >= 3.5 and others_avg >= 3.5:
+                            return "Strength"
+
+                        elif self_score <= 3.0 and others_avg <= 3.5:
+                            return "Area of Improvement"
+
+                        elif self_score <= 3.0 and others_avg > 3.5 and diff_avg >= 0.5:
+                            return "Hidden Strength"
+
+                        elif self_score >= 3.5 and others_avg <= 3.0 and diff_avg <= -0.5:
+                            return "Blind Spot"
+
+                        else:
+                            return "Proficient"
+
+                    def get_others_avg(score):
+                        others = [s_value for s_type,s_value in score.items() if s_type != "Self"]
+                        return round(sum(others)/len(others)) if others else 0
+                    others_avg = get_others_avg(score)
+                    diff_avg = abs(self_score - others_avg)
+                    hlight = get_highlight(self_score, others_avg, diff_avg)
+                    gap["self_gap"] = abs(self_score - self_score)
+                    gap["manager_gap"] = abs(self_score - score.get("Manager",0))
+                    gap["peer_avg"] = abs(self_score - score.get("Peer",0))
+                    gap["subordinate_avg"] = abs(self_score - score.get("Subordinate",0))
+
+
+                    result[question].append({
+                        "score":score,
+                        "gap":gap
+                    })
+
+
+                              
+                        # final[question] = {
+                        #     "self_score": self_score,
+                        #     "others_avg": others_avg,
+                        #     "diff_avg": diff_avg,
+                        #     "highlight": highlight
+                        # }
+                        # result[question].append(final)
+
+        return result
+    
+    @staticmethod
+    def lbscore_overall_summary_of_scores(category_data):
+        if not isinstance(category_data,dict):
+            return {}
+        category_wise_overall_scores = {}
+        feedbacks = {}
+
+        for category,category_items in category_data.items():
+            if "Feedback" in category:
+                feedbacks[category] = category_items
+            else:
+                def extract_score(value):
+                    if not value:
+                        return None
+
+                    value = str(value)
+
+                    parts = value.split("–")
+                    try:
+                        return int(parts[0].strip())
+                    except:
+                        return None
+                manager_sum = self_sum = peer_sum = subordinate_sum = 0
+                manager_count = self_count = peer_count = subordinate_count = 0
+                for category_item in category_items:
+                    score = {}
+                    for question,values in category_item.items():
+                        for rater_type,r_values in values.items():
+                            num = [extract_score(v) for v in r_values if extract_score(v) is not None ]
+                            avg = round(sum(num)/len(num)) if num else 0
+            
+                            if rater_type == "Manager":
+                                manager_sum += avg
+                                manager_count += 1
+
+                            elif rater_type == "Self":
+                                self_sum += avg
+                                self_count += 1
+
+                            elif rater_type == "Peer":
+                                peer_sum += avg
+                                peer_count += 1
+
+                            elif rater_type == "Subordinate":
+                                subordinate_sum += avg
+                                subordinate_count += 1
+                final_manager_avg = round(manager_sum / manager_count, 1) if manager_count else 0   
+                final_self_avg = round(self_sum / self_count, 1) if self_count else 0
+                final_peer_avg = round(peer_sum / peer_count, 1) if peer_count else 0
+                final_subordinate_avg = round(subordinate_sum / subordinate_count, 1) if subordinate_count else 0
+                final_total_avg_except_self=final_manager_avg+final_peer_avg+final_subordinate_avg
+                final_others_avg = round(final_total_avg_except_self/3)
+                spider_chart_others_avg=final_peer_avg+final_subordinate_avg
+                category_wise_overall_scores[category] = {
+                    "manager_avg": final_manager_avg,
+                    "self_avg":final_self_avg,
+                    "peer_avg": final_peer_avg,
+                    "subordinate_avg":final_subordinate_avg ,
+                    "others_avg":final_others_avg,
+                    "spider_chart_others_avg":spider_chart_others_avg
+                }
+
+        return category_wise_overall_scores,feedbacks   
+
+    @staticmethod
+    def get_highlights(behavioural_datas):
+        strength_results = []
+        blind_spot_results = []
+        if not behavioural_datas:
+            return []
+        
+        for question,behavioural_data in behavioural_datas.items():
+            value = behavioural_data[0].get("score")
+            m=value.get("Manager")
+            s=value.get("Self")
+            p=value.get("Peer")
+            sub=value.get("Subordinate")
+
+            others = (m+p+sub)/2
+            gap_strength = others - s
+            gap_blind_spot= s - others
+
+            
+            if gap_blind_spot >= 0.5 and s >= 3.5:
+                blind_spot_results.append({
+                    "question": question,
+                    "self": s,
+                    "others_avg": round(others, 2),
+                    "gap": round(gap_blind_spot, 2)
+                })
+            
+            if gap_strength >= 0.5 and s <= 3:
+                strength_results.append({
+                   "question":question,
+                   "self":s,
+                   "others":round(others, 2),
+                   "gap":round(gap_strength,2)
+                })     
+
+        final_result_strengths = sorted(strength_results,key=lambda x:x["gap"],reverse=True)[:5]
+        final_result_blind_spots = sorted(blind_spot_results,key=lambda x:x["gap"],reverse=True)[:5]
+
+        return final_result_strengths, final_result_blind_spots 
+
+                    
+
+
+    @staticmethod
     def timed_task(name, func, *args, **kwargs):
         start = time.time()
         thread_id = threading.get_ident()
@@ -871,5 +1055,7 @@ class CommonFunctions:
 
         end = time.time()
         print(f"[END]   {name} | Thread: {thread_id} | Duration: {round(end - start, 2)} sec")
+
+        return result
 
         return result
