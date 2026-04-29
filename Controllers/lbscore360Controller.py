@@ -39,6 +39,8 @@ class LBscore360Controller:
                     def read_excell_file(uploaded_file):
                         uploaded_file.file.seek(0)
                         df=pd.read_excel(uploaded_file.file, engine="openpyxl")
+                        if "Attribute Name" in df.columns:
+                            df = df.rename(columns={"Attribute Name": "Name"})
                         df=df.replace([np.nan, np.inf, -np.inf], None)
                         for col in df.columns:
                             if pd.api.types.is_datetime64_any_dtype(df[col]):
@@ -71,7 +73,8 @@ class LBscore360Controller:
                     data = file1_data
                     profile = extract_profile(data)
                     grouped=defaultdict(list)
-
+                    category_data = {}
+                    general_competency = {}
                     for row in data:
                         grouped[row.get("Name")].append(row)
 
@@ -90,7 +93,22 @@ class LBscore360Controller:
                         result_orientation_feedback = grouped["Result Orientation Feedback"]
                         expertise_and_communication = grouped["Expertise and Communication"]
                         expertise_and_communication_feedback = grouped["Expertise and Communication Feedback"]
-
+                        category_data = {
+                            "Leadership": leadership,
+                            "Leadership Feedback": leadership_feedback,
+                            "Bandwidth": bandwidth,
+                            "Bandwidth Feedback": bandwidth_feedback,
+                            "Sales and Customer Centricity": sales_and_customer_centricity,
+                            "Sales and Customer Centricity Feedback": sales_and_customer_centricity_feedback,
+                            "Collaboration": collaboration,
+                            "Collaboration Feedback": collaboration_feedback,
+                            "Operational Excellence": operational_excellence,
+                            "Operational Excellence Feedback": operational_excellence_feedback,
+                            "Result Orientation": result_orientation,
+                            "Result Orientation Feedback": result_orientation_feedback,
+                            "Expertise and Communication": expertise_and_communication,
+                            "Expertise and Communication Feedback": expertise_and_communication_feedback
+                        }
                     
                     else:
                         def extract_category(column):
@@ -108,8 +126,7 @@ class LBscore360Controller:
 
                             return None, column
 
-                        category_data = {}
-                        general_competency = {}
+                        
                         columns = list(data[0].keys())
 
                         for col in columns:

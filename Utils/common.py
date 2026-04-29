@@ -881,7 +881,9 @@ class CommonFunctions:
                 continue
 
             for category_item in category_items:
-                 for question,values in category_item.items():
+                if not isinstance(category_item,dict):
+                    continue
+                for question,values in category_item.items():
                     score = {}
                     gap ={}
                     highlight={}
