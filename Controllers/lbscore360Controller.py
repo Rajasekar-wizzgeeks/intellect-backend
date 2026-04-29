@@ -106,14 +106,18 @@ class LBscore360Controller:
                                     general_competency[question] = [r.get(col) for r in data]
                     behavioural_indications = CommonFunctions.lbscore_broken_down_by_behavioural_indications(category_data)
                     overall_behavioural_indications,feedbacks=CommonFunctions.lbscore_overall_summary_of_scores(category_data)
-                    hidden_strengths,blind_spots = CommonFunctions.get_highlights(behavioural_indications)
+                    hidden_strengths,blind_spots,area_of_improvements,strengths = CommonFunctions.get_highlights(behavioural_indications)
+                    competency_summary = CommonFunctions.get_competency_summary(overall_behavioural_indications)
                     return {
                         "behavioural_indications": behavioural_indications,
                         "overall_behavioural_indications":overall_behavioural_indications,
                         "general_competency": general_competency,
                         "feedbacks":feedbacks,
                         "hidden_strengths":hidden_strengths,
-                        "blind_spots":blind_spots
+                        "blind_spots":blind_spots,
+                        "area_of_improvements":area_of_improvements,
+                        "strengths":strengths,
+                        "competency_summary":competency_summary
                       }
                     # yield json.dumps(file1_data)
                 pre = await asyncio.to_thread(preprocess_base_sync, files)
@@ -127,7 +131,13 @@ class LBscore360Controller:
                 yield f"data: {json.dumps(payload)}\n\n"
                 payload = {'type': 'blind_spots', 'data': pre.get('blind_spots', {})}
                 yield f"data: {json.dumps(payload)}\n\n"
+                payload = {'type': 'area_of_improvements', 'data': pre.get('area_of_improvements', {})}
+                yield f"data: {json.dumps(payload)}\n\n"
+                payload = {'type': 'strengths', 'data': pre.get('strengths', {})}
+                yield f"data: {json.dumps(payload)}\n\n"
                 payload = {'type': 'general_competency', 'data': pre.get('general_competency', {})}
+                yield f"data: {json.dumps(payload)}\n\n"
+                payload = {'type': 'competency_summary', 'data': pre.get('competency_summary', {})}
                 yield f"data: {json.dumps(payload)}\n\n"
                 yield "data: [DONE]\n\n"
 

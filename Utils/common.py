@@ -1003,10 +1003,12 @@ class CommonFunctions:
 
     @staticmethod
     def get_highlights(behavioural_datas):
-        strength_results = []
+        hidden_strength_results = []
         blind_spot_results = []
+        area_improvement_candidates = []
+        strengths = []
         if not behavioural_datas:
-            return []
+            return [],[],[],[]
         
         for question,behavioural_data in behavioural_datas.items():
             value = behavioural_data[0].get("score")
@@ -1015,8 +1017,8 @@ class CommonFunctions:
             p=value.get("Peer")
             sub=value.get("Subordinate")
 
-            others = (m+p+sub)/2
-            gap_strength = others - s
+            others = (m+p+sub)/3
+            gap_hidden_strength = others - s
             gap_blind_spot= s - others
 
             
@@ -1028,21 +1030,60 @@ class CommonFunctions:
                     "gap": round(gap_blind_spot, 2)
                 })
             
-            if gap_strength >= 0.5 and s <= 3:
-                strength_results.append({
+            if gap_hidden_strength >= 0.5 and s <= 3:
+                hidden_strength_results.append({
                    "question":question,
                    "self":s,
                    "others":round(others, 2),
-                   "gap":round(gap_strength,2)
-                })     
+                   "gap":round(gap_hidden_strength,2)
+                })  
 
-        final_result_strengths = sorted(strength_results,key=lambda x:x["gap"],reverse=True)[:5]
+            area_improvement_candidates.append({
+                "question":question,
+                "others":round(others, 2),
+            })
+            
+            strengths.append({
+                 "question":question,
+                "others":round(others, 2),
+             })  
+            area_improvement_candidates = sorted(area_improvement_candidates,key=lambda x:x["others"])[:5]
+            strengths = sorted(strengths,key=lambda x:x["others"],reverse=True)[:5]
+
+        final_result_strengths = sorted(hidden_strength_results,key=lambda x:x["gap"],reverse=True)[:5]
         final_result_blind_spots = sorted(blind_spot_results,key=lambda x:x["gap"],reverse=True)[:5]
 
-        return final_result_strengths, final_result_blind_spots 
+        return final_result_strengths, final_result_blind_spots ,area_improvement_candidates,strengths
 
                     
+    @staticmethod
+    def get_competency_summary(overall_behavioural_indications):
+        total_score = 0.0
+        weights = {
+        "Leadership": 50,
+        "Bandwidth": 100,
+        "Sales and Customer Centricity": 100,
+        "Collaboration": 50,
+        "Operational Excellence": 100,
+        "Result Orientation": 50,
+        "Expertise and Communication": 50
+         }
 
+        for competency, values in overall_behavioural_indications.items():
+
+            manager = values.get("manager_avg", 0)
+            peer = values.get("peer_avg", 0)
+            subordinate = values.get("subordinate_avg", 0)
+
+            others_avg = (manager + peer + subordinate) / 3
+
+            weight = weights.get(competency, 0)
+
+            weighted_score = (others_avg / 5) * weight
+
+            total_score += weighted_score
+
+        return round(total_score, 2)
 
     @staticmethod
     def timed_task(name, func, *args, **kwargs):
