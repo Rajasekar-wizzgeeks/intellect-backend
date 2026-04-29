@@ -44,8 +44,32 @@ class LBscore360Controller:
                             if pd.api.types.is_datetime64_any_dtype(df[col]):
                                 df[col] = df[col].astype(str)
                         return df.to_dict(orient="records") if df is not None else []
+                    def extract_profile(data):
+                        if not data:
+                            return {}
+
+                        df = pd.DataFrame(data)
+
+                        first_row = df.iloc[0]
+
+                        raw_name = first_row.get("Feedback recipient name", "")
+                        name = raw_name.split("(")[-1].replace(")", "").strip() if "(" in raw_name else raw_name
+
+                        rater_types = df.get("Rater type")
+                        assessed_by = ", ".join(sorted(set(rater_types.dropna()))) if rater_types is not None else ""
+
+                        return {
+                            "Associate Name": name,
+                            "Associate ID": first_row.get("Feedback recipient ID"),
+                            "Email ID": first_row.get("Feedback recipient email ID"),
+                            "Stream": first_row.get("Department"),
+                            "LOB": first_row.get("Organzation unit"),
+                            "Report Date": str(first_row.get("Created on")).replace("_","-"),
+                            "Assessed By": assessed_by
+                        }
                     file1_data=read_excell_file(__files[0])
                     data = file1_data
+                    profile = extract_profile(data)
                     grouped=defaultdict(list)
 
                     for row in data:
@@ -109,6 +133,7 @@ class LBscore360Controller:
                     hidden_strengths,blind_spots,area_of_improvements,strengths = CommonFunctions.get_highlights(behavioural_indications)
                     competency_summary = CommonFunctions.get_competency_summary(overall_behavioural_indications)
                     return {
+                        "profile":profile,
                         "behavioural_indications": behavioural_indications,
                         "overall_behavioural_indications":overall_behavioural_indications,
                         "general_competency": general_competency,
@@ -121,6 +146,8 @@ class LBscore360Controller:
                       }
                     # yield json.dumps(file1_data)
                 pre = await asyncio.to_thread(preprocess_base_sync, files)
+                payload = {'type': 'profile', 'data': pre.get('profile', {})}
+                yield f"data: {json.dumps(payload)}\n\n"
                 payload = {'type': 'behavioural_indications', 'data': pre.get('behavioural_indications', {})}
                 yield f"data: {json.dumps(payload)}\n\n"
                 payload = {'type': 'feedbacks', 'data': pre.get('feedbacks', {})}
