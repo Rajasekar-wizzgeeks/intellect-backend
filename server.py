@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from Routes.feedbackRoutes import feedback_bp
 from Routes.lbscore360Routes import lbscore360_bp
+from Routes.FeedbackSummaryRoute import feedback_summary_bp
 
 import uvicorn
 import os
@@ -20,6 +21,7 @@ app.add_middleware(
 
 app.include_router(feedback_bp)
 app.include_router(lbscore360_bp)
+app.include_router(feedback_summary_bp)
 
 
 @app.get("/health")

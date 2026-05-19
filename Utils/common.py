@@ -5,6 +5,9 @@ import threading
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from collections import defaultdict
+import asyncio
+import json
+
 
 class CommonFunctions:
 
@@ -442,7 +445,7 @@ class CommonFunctions:
         final_output = dict(
             sorted(
                 final_output.items(),
-                key=lambda x: (x[1].get("Subordinates") is None, x[1].get("Subordinates", 0)),
+                key=lambda x: (x[1].get("Subordinates") is None, x[1].get("Subordinates") or 0),
                 reverse=True
             )
         )
@@ -1086,6 +1089,267 @@ class CommonFunctions:
             total_score += weighted_score
 
         return round(total_score, 2)
+
+
+    @staticmethod
+    def get_headlines(overall_questionwise_data):
+        highest_team_avg=sorted(
+            [
+                item for item in overall_questionwise_data.items()
+                if item[1].get("Subordinates") is not None
+            ],
+            key=lambda x: x[1].get("Subordinates") or 0,
+            reverse=True)[:5]
+
+        lowest_team_avg = sorted(
+            [
+                item for item in overall_questionwise_data.items()
+                if item[1].get("Subordinates") is not None
+            ],
+            key=lambda x: x[1].get("Subordinates") or 0,
+            reverse=False)[:5]
+
+        highest_manager_avg = sorted(
+            [
+                item for item in overall_questionwise_data.items()
+                if item[1].get("Manager") is not None
+            ],
+            key=lambda x: x[1].get("Manager") or 0,
+            reverse=True)[:5]
+        
+        lowest_manager_avg = sorted(
+            [
+                item for item in overall_questionwise_data.items()
+                if item[1].get("Manager") is not None
+            ],
+            key=lambda x: x[1].get("Manager") or 0,
+            reverse=False)[:5]
+
+        return highest_team_avg, lowest_team_avg, highest_manager_avg, lowest_manager_avg
+
+    @staticmethod
+    def get_overall_averages_by_principal(all_records):
+        employee_summary = defaultdict(
+            lambda: {
+                "team_total": 0,
+                "team_count": 0,
+                "manager_total": 0,
+                "manager_count": 0
+            }
+        )
+        for row in all_records:
+           employee = row.get("Employee Name")   
+           if not employee:
+             continue
+           rater_type = row.get("Rate Group","") or row.get("Rater Group","") or row.get("Rater type","") 
+           rater_type = rater_type.strip().lower()
+           rating = row.get("Rating")
+           if not isinstance(rating, (int,float)):
+            continue
+           if rater_type in ["subordinates","others"]:
+             employee_summary[employee]["team_total"] += rating
+             employee_summary[employee]["team_count"] += 1
+       
+           elif "manager" in rater_type:
+             employee_summary[employee]["manager_total"] += rating
+             employee_summary[employee]["manager_count"] += 1
+       
+        team_summary=[]
+        manager_summary=[]
+        for employee, data in employee_summary.items():
+            if data["team_count"] > 0:
+                avg = round(data["team_total"] / data["team_count"], 2)
+                team_summary.append({"employee": employee, "average": avg,  "responses":
+                data["team_count"]})
+            if data["manager_count"] > 0:
+                avg = round(data["manager_total"] / data["manager_count"], 2)
+                manager_summary.append({"employee": employee, "average": avg, "responses":
+                data["manager_count"]})
+
+
+        team_summary = sorted(team_summary, key=lambda x: x["average"],reverse=True)
+        manager_summary = sorted(manager_summary, key=lambda x: x["average"],reverse=True)
+
+        overall_principal_averages = {
+            "team_summary": team_summary,
+            "manager_summary": manager_summary
+        }
+
+        return overall_principal_averages
+
+    @staticmethod
+    def get_summary_framework_recap(all_records):
+        principal_names = set()
+
+        survey_questions = set()
+
+        competencies = set()
+
+        available_groups = set()
+
+        for row in all_records:
+
+            employee = row.get("Employee Name")
+
+            if employee:
+                principal_names.add(employee)
+
+            question = row.get("Question")
+
+            if question:
+                survey_questions.add(question)
+
+            competency = row.get("Name")
+
+            if competency and competency != "General":
+
+                competencies.add(competency)
+
+            group = (
+                row.get("Rater Group")
+                or row.get("Rate Group")
+            )
+
+            if group:
+                available_groups.add(group)
+
+        principal_count = len(principal_names)
+
+        survey_question_count = len(survey_questions)
+
+        competency_count = len(competencies)
+
+        qualitative_question_count = 5
+
+        total_questions = (
+            survey_question_count
+            + qualitative_question_count
+        )
+
+        survey_framework_recap = {
+
+            "principal_count":principal_count,
+
+            "responses_given_by":list(available_groups),
+
+            "survey_question_count":survey_question_count,
+
+            "qualitative_question_count":qualitative_question_count,
+
+            "total_questions":total_questions,
+
+            "competency_count":competency_count,
+
+            "competencies":list(competencies)
+        }
+
+        return survey_framework_recap
+
+    @staticmethod
+    def get_all_comments(all_records):
+       comments = []
+       seen = set()
+       for record in all_records:
+           rater_type = record.get("Rate Group","") or record.get("Rater Group","") or record.get("Rater type","") 
+           rater_type = rater_type.strip().lower()
+           employee_name = record.get("Employee Name","")
+           question = record.get("Question","")
+           if rater_type in ["subordinates","others"]:
+              normalized_group ="team"
+           else:
+              normalized_group ="manager"
+           comment_key = f"{employee_name}_{question}_{normalized_group}"
+           if comment_key not in seen:
+               seen.add(comment_key)
+               comments.append({"employee": employee_name, "question": question,"rater_type":normalized_group})    
+       return comments
+           
+           
+    @staticmethod
+    def get_employee_wise_overall_data(all_records):
+        employee_wise_data = defaultdict(list)
+        for r in all_records:
+            employee_name = r.get("Employee Name","")
+            if not employee_name:
+                continue
+            employee_wise_data[employee_name].append(r)
+        return employee_wise_data
+
+    @staticmethod
+    def get_leadership_profiles(employee_wise_overall_data):
+        employee_cards = []
+        for employee,rows in employee_wise_overall_data.items():
+            question_wise_data = CommonFunctions.questionwise_avg_by_rate_group(rows)
+            highest_team_avg,lowest_team_avg,highest_manager_avg,lowest_manager_avg = CommonFunctions.get_headlines(question_wise_data)
+            team_response_count = 0
+            manager_response_count = 0
+            for r in rows:
+                rater_type = r.get("Rate Group","") or r.get("Rater Group","") or r.get("Rater type","")
+                rater_type = rater_type.strip().lower()
+                if rater_type in ["subordinates","others","teams"]:
+                    team_response_count += 1
+                elif "manager" in rater_type:
+                    manager_response_count += 1   
+            formatted_highest_team = []
+            formatted_lowest_team = []
+            formatted_highest_manager = []
+            formatted_lowest_manager = []
+
+            
+
+            for question, values in highest_team_avg:
+                formatted_highest_team.append({"question":question,"average":values.get("Subordinates")})
+            
+            for question, values in lowest_team_avg:
+                formatted_lowest_team.append({"question":question,"average":values.get("Subordinates")})
+
+            for question, values in highest_manager_avg:
+                formatted_highest_manager.append({"question":question,"average":values.get("Manager")})
+
+            for question, values in lowest_manager_avg:
+                formatted_lowest_manager.append({"question":question,"average":values.get("Manager")})
+ 
+            
+            employee_cards.append({
+                    "employee":employee,
+                    "team_responses":team_response_count,
+                    "manager_responses":manager_response_count,
+                    "highest_team_avg":formatted_highest_team,
+                    "lowest_team_avg":formatted_lowest_team,
+                    "highest_manager_avg":formatted_highest_manager,
+                    "lowest_manager_avg":formatted_lowest_manager,
+                })
+            
+        return employee_cards
+        
+    @staticmethod
+    def get_competency_summary_institution(competency_data):
+        values = []
+
+        for question, value in competency_data.items():
+          for group, val in value.items():
+            if group == "Self":
+                continue
+
+            if val is not None:
+                values.append(val)
+
+        if not values:
+            return {
+                "min": 0,
+                "avg": 0,
+                "max": 0
+            }
+
+        return {
+
+            "min":round(min(values), 2),
+
+            "avg":round(sum(values) / len(values),2),
+
+            "max":round(max(values), 2)
+        }
+    
 
     @staticmethod
     def timed_task(name, func, *args, **kwargs):

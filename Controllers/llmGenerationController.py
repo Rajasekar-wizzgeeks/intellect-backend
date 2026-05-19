@@ -27,6 +27,35 @@ class LLMGenerationController:
                     
                 contents=data
             )
+            usage = getattr(response, "usage_metadata", None)
+
+            if usage:
+                INPUT_PRICE = 0.30
+                OUTPUT_PRICE = 2.50
+
+                prompt_tokens = usage.prompt_token_count or 0
+                completion_tokens = usage.candidates_token_count or 0
+                thought_tokens = usage.thoughts_token_count or 0
+                total_tokens = usage.total_token_count or 0
+
+                input_cost = (
+                    prompt_tokens / 1_000_000
+                ) * INPUT_PRICE
+
+                output_cost = (
+                    completion_tokens / 1_000_000
+                ) * OUTPUT_PRICE
+
+                total_cost = input_cost + output_cost
+
+                print("Thought Tokens:", thought_tokens)
+                print("Prompt Tokens:", prompt_tokens)
+                print("Completion Tokens:", completion_tokens)
+                print("Total Tokens:", total_tokens)
+
+                print(f"Input Cost: ${input_cost:.8f}")
+                print(f"Output Cost: ${output_cost:.8f}")
+                print(f"Total Cost: ${total_cost:.8f}")
 
             response_text=response.text
             try:
@@ -63,13 +92,38 @@ class LLMGenerationController:
                     
                 contents=data
             )
+
             usage = getattr(response, "usage_metadata", None)
+
             if usage:
-                print("Prompt Tokens:", usage.prompt_token_count)
-                print("Completion Tokens:", usage.candidates_token_count)
-                print("Total Tokens:", usage.total_token_count)
-            response_text=response.text
-            # response_text=""
+                INPUT_PRICE = 0.30
+                OUTPUT_PRICE = 2.50
+
+                prompt_tokens = usage.prompt_token_count or 0
+                completion_tokens = usage.candidates_token_count or 0
+                thought_tokens = usage.thoughts_token_count or 0
+                total_tokens = usage.total_token_count or 0
+
+                input_cost = (
+                    prompt_tokens / 1_000_000
+                ) * INPUT_PRICE
+
+                output_cost = (
+                    completion_tokens / 1_000_000
+                ) * OUTPUT_PRICE
+
+                total_cost = input_cost + output_cost
+
+                print("Thought Tokens:", thought_tokens)
+                print("Prompt Tokens:", prompt_tokens)
+                print("Completion Tokens:", completion_tokens)
+                print("Total Tokens:", total_tokens)
+
+                print(f"Input Cost: ${input_cost:.8f}")
+                print(f"Output Cost: ${output_cost:.8f}")
+                print(f"Total Cost: ${total_cost:.8f}")
+
+            response_text = response.text
          
             try:
                 structured = json.loads(response_text)
