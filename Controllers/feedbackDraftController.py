@@ -41,8 +41,9 @@ class FeedbackDraftController:
                 "message": "Feedback draft created successfully",
                 "id": str(feedback_draft.id)
             }
+        except ApiException:
+            raise
         except Exception as e:
-            print(f"Error creating feedback draft: {str(e)}")
             raise ApiException(500, "Error creating feedback draft "+ str(e))
     
     def get_feedback_draft(self,user):
@@ -50,7 +51,6 @@ class FeedbackDraftController:
             user_id = user.get("user_id")
             feedback_drafts = self.feedback_draft_model.objects(user_id=user_id)
             if feedback_drafts:
-
                 return [{
                     "id": str(feedback.id),
                     "excel_name": feedback.excel_name,
@@ -63,7 +63,6 @@ class FeedbackDraftController:
                     "message": "No feedback draft found for this user"
                 }
         except Exception as e:
-            print(f"Error getting feedback draft: {str(e)}")
             raise ApiException(500, "Error getting feedback draft"+ str(e))
 
     def get_feedback_draft_by_id(self,user, feedback_draft_id):
@@ -71,19 +70,30 @@ class FeedbackDraftController:
             user_id = user.get("user_id")
             feedback_draft = self.feedback_draft_model.objects(id=feedback_draft_id).first()
             owner_id = feedback_draft.user_id.id
+            access_type = "owner"
             if not feedback_draft:
                 raise ApiException(404, "Feedback draft not found")
             if str(owner_id) != user_id:
                 if ObjectId(user_id) not in feedback_draft.editors and ObjectId(user_id) not in feedback_draft.viewers:
                     raise ApiException(403, "You are not authorized to access this feedback draft")
+                elif ObjectId(user_id) in feedback_draft.editors:
+                    access_type = "editor"
+                elif ObjectId(user_id) in feedback_draft.viewers:
+                    access_type = "viewer"
+            if ObjectId(user_id) in feedback_draft.editors:
+                feedback_draft.is_edited = True
+                feedback_draft.save()
             if feedback_draft:
-                return feedback_draft.to_dict()
+                result = feedback_draft.to_dict()
+                result["access_type"] = access_type
+                return result
             else:
                 return {
                     "message": "No feedback draft found for this id"
                 }
+        except ApiException:
+            raise
         except Exception as e:
-            print(f"Error getting feedback draft: {str(e)}")
             raise ApiException(500, "Error getting feedback draft"+ str(e))
     
     def update_feedback_draft(self, user, feedback_draft_id, feedback_data, report_type):
@@ -102,14 +112,15 @@ class FeedbackDraftController:
                 "message": "Feedback draft updated successfully",
                 "id": str(feedback_draft.id)
             }
+        except ApiException:
+            raise
         except Exception as e:
-            print(f"Error updating feedback draft: {str(e)}")
             raise ApiException(500, "Error updating feedback draft"+ str(e))
 
     def give_access(self, user,feedback_draft_id, editors, viewers):
         try:
-            if user.get("role","") != "admin":
-                raise ApiException(403, "Only admin can give access")
+            # if user.get("role","") != "admin":
+            #     raise ApiException(403, "Only admin can give access")
 
             user_obj = self.user_model.objects(id=user.get("user_id","")).first()
             if not user_obj:
@@ -118,7 +129,9 @@ class FeedbackDraftController:
             feedback_draft = self.feedback_draft_model.objects(id=feedback_draft_id).first()
             if not feedback_draft:
                 raise ApiException(404, "Feedback draft not found")
-            
+
+            if user.get("role") != "admin" and (ObjectId(user.get("user_id")) not in feedback_draft.editors and ObjectId(user.get("user_id")) not in feedback_draft.viewers):
+                raise ApiException(403, "You are not authorized to give access to this feedback draft")
             
             if editors:
                 for editor in editors:
@@ -139,15 +152,30 @@ class FeedbackDraftController:
                 "editors": [str(editor) for editor in feedback_draft.editors],
                 "viewers": [str(viewer) for viewer in feedback_draft.viewers]
             }
+        except ApiException:
+            raise
         except Exception as e:
             raise ApiException(500, "Error giving access "+str(e))
     
 
     
-    def delete_feedback_draft(self, feedback_draft_id):
-        feedback_draft = self.feedback_draft_model.objects(id=feedback_draft_id).first()
-        if feedback_draft:
-            feedback_draft.delete()
-            return True
-        return False
+    def delete_feedback_draft(self,user, feedback_draft_id):
+        try:
+            feedback_draft = self.feedback_draft_model.objects(id=feedback_draft_id).first()
+            user_id = user.get("user_id","")
+            if not feedback_draft:
+                raise ApiException(404, "Feedback draft not found")
+            if str(feedback_draft.user_id.id) != user_id:
+                if ObjectId(user_id) not in feedback_draft.editors:
+                    raise ApiException(403, "You are not authorized to delete this feedback draft")
+            if feedback_draft:
+                feedback_draft.delete()
+                return {
+                    "message": "Feedback draft deleted successfully",
+                    "id": str(feedback_draft_id)
+                }
+        except ApiException:
+            raise
+        except Exception as e:
+            raise ApiException(500, "Error deleting feedback draft "+str(e))
     

@@ -10,3 +10,9 @@ login_bp = APIRouter(prefix="/api/user")
 async def login(request: Request):
     data = await request.json()
     return login_controller.login(data)
+
+@login_bp.post("/logout")
+async def logout(request: Request):
+    token = request.headers.get("Authorization")
+    return login_controller.logout(token)
+

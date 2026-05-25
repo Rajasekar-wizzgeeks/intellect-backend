@@ -27,10 +27,32 @@ class LoginController:
                 return {
                     "message": "User logged in successfully",
                     "user": str(user.id),
+                    "email": user.email,
+                    "role": user.role,
                     "token": token
                 }
             else:
                 raise ApiException(401, "Invalid credentials")
+        except ApiException:
+            raise
         except Exception as e:
             raise ApiException(500, "Error logging in " + str(e))
+
+    def logout(self, token):
+        try:
+            user = self.user.objects(token=token).first()
+            if user:
+                user.token = ""
+                user.save()
+                return {
+                    "message": "User logged out successfully"
+                }
+            else:
+                raise ApiException(404, "User not found")
+
+        except ApiException:
+            raise
+        except Exception as e:
+            raise ApiException(500, "Error logging out " + str(e))
+
 

@@ -11,7 +11,8 @@ class AuthMiddleware:
     def __init__(self, app):
         self.app = app
         self.auth = Authentication()
-        self.exclude_routes = [             "/api/user/login",
+        self.exclude_routes = [             
+            "/api/user/login",
             "/api/user/create"
         ]
 

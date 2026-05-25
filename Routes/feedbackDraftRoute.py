@@ -30,6 +30,12 @@ async def update_feedback_draft(request: Request):
     report_type = data.get("report_type")
     return controller.update_feedback_draft(user, feedback_draft_id, feedback_data, report_type)
 
+@feedback_draft_router.delete("/delete")
+async def delete_feedback_draft(request: Request):
+    user = request.scope["user"]
+    feedback_draft_id = request.query_params.get("feedback_draft_id")
+    return controller.delete_feedback_draft(user, feedback_draft_id)
+
 
 @feedback_draft_router.post("/giveAccess")
 async def give_access(request: Request):

@@ -26,6 +26,8 @@ class UserController:
                 "message": "User created successfully",
                 "user": user_dict.get("id","")
             }
+        except ApiException:
+            raise
         except Exception as e:
             raise ApiException(500, "Error creating user", str(e))
 
@@ -35,12 +37,14 @@ class UserController:
             if not user:
                 raise ApiException(404, "User not found")
             return user.to_dict()
+        except ApiException:
+            raise
         except Exception as e:
             raise ApiException(500, "Error getting user", str(e))
     
-    def get_all_users(self):
+    def get_all_users(self,user_id):
         try:
-            users = self.user.objects()
+            users = self.user.objects(id__ne=user_id)
             return [{
                 "id": str(user.id),
                 "email": user.email,
