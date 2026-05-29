@@ -11,7 +11,7 @@ class Authentication:
     def __init__(self):
         self.secret_key = os.getenv("SECRET_KEY")
         self.algorithm = os.getenv("ALGORITHM")
-        self.expires_in = int(os.getenv("ACCESS_TOKEN_EXPIRE_HOURS"))
+        self.expires_in = int(os.getenv("ACCESS_TOKEN_EXPIRE_HOURS","24"))
         self.pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
         
     def hash_password(self, password):
