@@ -870,13 +870,34 @@ class CommonFunctions:
             if not value:
                 return None
 
-            value = str(value)
+            value = str(value).strip()
+
+            if value.upper() == "NA":
+                return None
 
             parts = value.split("–")
             try:
                 return int(parts[0].strip())
             except:
                 return None
+           
+        def get_highlight(self_score, others_avg):
+                if self_score == "NA" or others_avg == "NA":
+                    return ""
+                if self_score >= 3.5 and others_avg >= 3.5:
+                    return "Strength"
+                elif self_score <= 3.0 and others_avg <= 3.5:
+                    return "Area of Improvement"
+                elif (self_score <= 3.0 and others_avg > 3.5 and (others_avg - self_score) >= 0.5):
+                    return "Hidden Strength"
+                elif (self_score >= 3.5 and others_avg <= 3.0 and (self_score - others_avg) >= 0.5):
+                    return "Blind Spot"
+                return ""           
+
+        def get_others_avg(score):
+           others = [s_value for s_type, s_value in score.items() if s_type != "Self" and s_value != "NA"]
+           return round(sum(others) / len(others), 2) if others else "NA"             
+
         result=defaultdict(list)
         if not isinstance(category_data,dict):
             return {}
@@ -890,56 +911,46 @@ class CommonFunctions:
                 for question,values in category_item.items():
                     score = {}
                     gap ={}
-                    highlight={}
                     for rater_type,values in values.items():
-                        num = [extract_score(v) for v in values if extract_score(v) is not None ]
-                        avg = round(sum(num)/len(num)) if num else 0
-                        score[rater_type] = avg
+                        num = [extract_score(v) for v in values if extract_score(v) is not None]
 
-                    self_score = score.get("Self",0)
-                    
-                    def get_highlight(self_score,others_avg,diff_avg):
-                        if self_score >= 3.5 and others_avg >= 3.5:
-                            return "Strength"
-
-                        elif self_score <= 3.0 and others_avg <= 3.5:
-                            return "Area of Improvement"
-
-                        elif self_score <= 3.0 and others_avg > 3.5 and diff_avg >= 0.5:
-                            return "Hidden Strength"
-
-                        elif self_score >= 3.5 and others_avg <= 3.0 and diff_avg <= -0.5:
-                            return "Blind Spot"
-
+                        if not num:
+                            score[rater_type] = "NA"
                         else:
-                            return "Proficient"
+                            score[rater_type] = round(sum(num) / len(num),2)
 
-                    def get_others_avg(score):
-                        others = [s_value for s_type,s_value in score.items() if s_type != "Self"]
-                        return round(sum(others)/len(others)) if others else 0
+                    self_score = score.get("Self", "NA")
+                 
                     others_avg = get_others_avg(score)
-                    diff_avg = abs(self_score - others_avg)
-                    hlight = get_highlight(self_score, others_avg, diff_avg)
-                    gap["self_gap"] = abs(self_score - self_score)
-                    gap["manager_gap"] = abs(self_score - score.get("Manager",0))
-                    gap["peer_avg"] = abs(self_score - score.get("Peer",0))
-                    gap["subordinate_avg"] = abs(self_score - score.get("Subordinate",0))
+                    hlight = get_highlight(self_score,others_avg)
+
+                    gap["self_gap"] = 0
+
+                    gap["manager_gap"] = (
+                        round(abs(self_score - score.get("Manager")),2)
+                        if self_score != "NA" and score.get("Manager") is not None and score.get("Manager") != "NA"
+                        else "NA"
+                    )
+
+                    gap["peer_avg"] = (
+                        round(abs(self_score - score.get("Peer")),2)
+                        if self_score != "NA" and score.get("Peer") is not None and score.get("Peer") != "NA"
+                        else "NA"
+                    )
+
+                    gap["subordinate_avg"] = (
+                        round(abs(self_score - score.get("Subordinate")),2)
+                        if self_score != "NA" and score.get("Subordinate") is not None and score.get("Subordinate") != "NA"
+                        else "NA"
+                    )
 
 
                     result[question].append({
                         "score":score,
-                        "gap":gap
+                        "gap":gap,
+                        "highlight": hlight
                     })
 
-
-                              
-                        # final[question] = {
-                        #     "self_score": self_score,
-                        #     "others_avg": others_avg,
-                        #     "diff_avg": diff_avg,
-                        #     "highlight": highlight
-                        # }
-                        # result[question].append(final)
 
         return result
     
@@ -1643,9 +1654,8 @@ class CommonFunctions:
 
         for competency in competencies:
 
-            # -------------------------------------------------
-            # PARTICIPANT
-            # -------------------------------------------------
+            if "Feedback" in competency:
+                continue
 
             your_rating = {
                 "self": [],

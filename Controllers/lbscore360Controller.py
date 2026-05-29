@@ -66,6 +66,7 @@ class LBscore360Controller:
                             "Email ID": first_row.get("Feedback recipient email ID"),
                             "Stream": first_row.get("Department"),
                             "LOB": first_row.get("Organzation unit"),
+                            "Role":first_row.get("Designation"),
                             "Report Date": str(first_row.get("Created on")).replace("_","-"),
                             "Assessed By": assessed_by
                         }
@@ -219,6 +220,8 @@ class LBscore360Controller:
                                         category_data[category] = []
 
                                     values_by_rate_group = {}
+                                    is_feedback = "Feedback" in category
+
                                     for row in recipient_rows:
                                         rg = (
                                             row.get("Rate Group")
@@ -227,11 +230,16 @@ class LBscore360Controller:
                                             or "Unknown"
                                         )
                                         value = row.get(col)
-                                        score_match = re.search(r"\d+", str(value)) if value is not None else None
-                                        if not score_match:
-                                            continue
-                                        score = int(score_match.group())
-                                        values_by_rate_group.setdefault(rg, []).append(score)
+
+                                        if is_feedback:
+                                            if value is not None:
+                                                values_by_rate_group.setdefault(rg, []).append(value)
+                                        else:
+                                            score_match = re.search(r"\d+", str(value)) if value is not None else None
+                                            if not score_match:
+                                                continue
+                                            score = int(score_match.group())
+                                            values_by_rate_group.setdefault(rg, []).append(score)
 
                                     category_data[category].append({question: values_by_rate_group})
                                 else:
@@ -274,16 +282,16 @@ class LBscore360Controller:
                             "participant_and_cohort_summary": participant_and_cohort_summary,
                         })
 
-                    # Cohort-level competency summary (computed once across all recipients)
                     competency_summary = CommonFunctions.get_competency_summary(employee_wise_category_data)
+
+                    for result in per_recipient_results:
+                        result["competency_summary"] = competency_summary.get(result["employee_name"], {})
 
                     return {
                         "recipients": per_recipient_results,
-                        "competency_summary": competency_summary,
                     }
                 pre = await asyncio.to_thread(preprocess_base_sync, files)
 
-                # Stream one event per recipient containing all their data
                 for recipient in pre.get("recipients", []):
                     payload = {
                         "type": "recipient_data",
@@ -299,17 +307,11 @@ class LBscore360Controller:
                             "area_of_improvements": recipient.get("area_of_improvements", []),
                             "strengths": recipient.get("strengths", []),
                             "general_competency": recipient.get("general_competency", {}),
+                            "competency_summary": recipient.get("competency_summary", {}),
                         }
                     }
                     yield f"data: {json.dumps(payload)}\n\n"
 
-                # Cohort-level competency summary emitted once
-                payload = {
-                    "type": "competency_summary",
-                    "employee_id": "all",
-                    "data": pre.get("competency_summary", {})
-                }
-                yield f"data: {json.dumps(payload)}\n\n"
                 yield "data: [DONE]\n\n"
 
             except Exception as e:
