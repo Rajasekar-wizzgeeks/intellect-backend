@@ -8,7 +8,7 @@ import re
 import os
 
 import asyncio
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 from Utils.common import CommonFunctions
 
 class LBscore360Controller:
@@ -39,6 +39,8 @@ class LBscore360Controller:
                     def read_excell_file(uploaded_file):
                         uploaded_file.file.seek(0)
                         df=pd.read_excel(uploaded_file.file, engine="openpyxl")
+                        if "Attribute Name" in df.columns:
+                            df = df.rename(columns={"Attribute Name": "Name"})
                         df=df.replace([np.nan, np.inf, -np.inf], None)
                         for col in df.columns:
                             if pd.api.types.is_datetime64_any_dtype(df[col]):
@@ -64,108 +66,252 @@ class LBscore360Controller:
                             "Email ID": first_row.get("Feedback recipient email ID"),
                             "Stream": first_row.get("Department"),
                             "LOB": first_row.get("Organzation unit"),
+                            "Role":first_row.get("Designation"),
                             "Report Date": str(first_row.get("Created on")).replace("_","-"),
                             "Assessed By": assessed_by
                         }
+                    def get_display_name(raw_name):
+                        if raw_name and "(" in raw_name:
+                            return raw_name.split("(")[-1].replace(")", "").strip()
+                        return raw_name or "Employee Name"
                     file1_data=read_excell_file(__files[0])
-                    data = file1_data
-                    profile = extract_profile(data)
-                    grouped=defaultdict(list)
+                    all_records=[]
+                    for f in __files:
+                        all_records.extend(read_excell_file(f))
+                    if not all_records:
+                        return {"error": "No data found in uploaded file."}
 
-                    for row in data:
-                        grouped[row.get("Name")].append(row)
+                    recipient_groups = OrderedDict()
+                    for row in all_records:
+                        rid = row.get("Feedback recipient ID")
+                        if not rid:
+                            continue
+                        if rid not in recipient_groups:
+                            recipient_groups[rid] = []
+                        recipient_groups[rid].append(row)
+                    recipient_order = list(recipient_groups.keys())
 
-                    if "Name" in data[0]:
-                        leadership = grouped["Leadership"]
-                        leadership_feedback = grouped["Leadership Feedback"]
-                        bandwidth = grouped["Bandwidth"]
-                        bandwidth_feedback = grouped["Bandwidth Feedback"]
-                        sales_and_customer_centricity = grouped["Sales and Customer Centricity"]
-                        sales_and_customer_centricity_feedback = grouped["Sales and Customer Centricity Feedback"]
-                        collaboration = grouped["Collaboration"]
-                        collaboration_feedback = grouped["Collaboration Feedback"]
-                        operational_excellence = grouped["Operational Excellence"]
-                        operational_excellence_feedback = grouped["Operational Excellence Feedback"]
-                        result_orientation = grouped["Result Orientation"]
-                        result_orientation_feedback = grouped["Result Orientation Feedback"]
-                        expertise_and_communication = grouped["Expertise and Communication"]
-                        expertise_and_communication_feedback = grouped["Expertise and Communication Feedback"]
+                    # Pass 1: build employee_wise_category_data across all recipients for cohort calculations
+                    employee_wise_category_data = {}
 
-                    
-                    else:
-                        def extract_category(column):
-                            if not column:
-                                return None, None
+                    def extract_category_name(column):
+                        if not column:
+                            return None, None
+                        column = column.strip()
+                        match = re.match(r"\s*\[\s*(.*?)\s*\]\s*(.*)", column)
+                        if match:
+                            return match.group(1).strip(), match.group(2).strip()
+                        return None, column
 
-                            column = column.strip() 
-
-                            match = re.match(r"\s*\[\s*(.*?)\s*\]\s*(.*)", column)
-
-                            if match:
-                                category = match.group(1).strip()   
-                                question = match.group(2).strip() 
-                                return category, question
-
-                            return None, column
-
-                        category_data = {}
-                        general_competency = {}
-                        columns = list(data[0].keys())
-
+                    if all_records and "Feedback recipient ID" in all_records[0] and "Name" not in all_records[0]:
+                        # Wide-format Excel (the lbscore360 format with bracketed column headers)
+                        columns = list(all_records[0].keys())
                         for col in columns:
                             if "Average" in col:
                                 continue
-                            category, question = extract_category(col)
-                            if category:
-                                if category not in category_data:
-                                    category_data[category] = []
-                                values_by_rate_group = {}
-                                for row in data:
-                                    rg = row.get("Rate Group") or row.get("Rater Group") or row.get("Rater type") or "Unknown"
-                                    values_by_rate_group.setdefault(rg, []).append(row.get(col))
-                                category_data[category].append({question: values_by_rate_group})
-                            else:
-                                exceptItem = ['Assessment name','Feedback type','Question template','Created by','Created on','Feedback recipient ID','Feedback recipient name','Feedback recipient status','Gender','Feedback recipient email ID','DOJ','Organzation unit','Department','Designation','Location','Rater Group','Rate Group','Rater type','Rater ID','Rater name','Rater status','Rater email ID','Rating','Comment','Declined Comment','Name','Question']
-                                if question not in exceptItem:
-                                    general_competency[question] = [r.get(col) for r in data]
-                    behavioural_indications = CommonFunctions.lbscore_broken_down_by_behavioural_indications(category_data)
-                    overall_behavioural_indications,feedbacks=CommonFunctions.lbscore_overall_summary_of_scores(category_data)
-                    hidden_strengths,blind_spots,area_of_improvements,strengths = CommonFunctions.get_highlights(behavioural_indications)
-                    competency_summary = CommonFunctions.get_competency_summary(overall_behavioural_indications)
+                            category, question = extract_category_name(col)
+                            if not category:
+                                continue
+                            for row in all_records:
+                                employee_name = get_display_name(row.get("Feedback recipient name"))
+                                rg = (
+                                    row.get("Rate Group")
+                                    or row.get("Rater Group")
+                                    or row.get("Rater type")
+                                    or "Unknown"
+                                )
+                                value = row.get(col)
+                                score_match = re.search(r"\d+", str(value)) if value is not None else None
+                                if not score_match:
+                                    continue
+                                score = int(score_match.group())
+
+                                if employee_name not in employee_wise_category_data:
+                                    employee_wise_category_data[employee_name] = []
+
+                                current_rater = None
+                                for item in employee_wise_category_data[employee_name]:
+                                    if item["Rater type"] == rg:
+                                        current_rater = item
+                                        break
+
+                                if not current_rater:
+                                    current_rater = {
+                                        "Function": (
+                                            row.get("Department")
+                                            or row.get("Function")
+                                            or "Business"
+                                        ),
+                                        "Rater type": rg
+                                    }
+                                    employee_wise_category_data[employee_name].append(current_rater)
+
+                                if category not in current_rater:
+                                    current_rater[category] = []
+
+                                current_rater[category].append(score)
+
+                    # Pass 2: per-recipient analytics loop
+                    per_recipient_results = []
+
+                    def extract_category(column):
+                        if not column:
+                            return None, None
+                        column = column.strip()
+                        match = re.match(r"\s*\[\s*(.*?)\s*\]\s*(.*)", column)
+                        if match:
+                            return match.group(1).strip(), match.group(2).strip()
+                        return None, column
+
+                    exceptItem = [
+                        'Assessment name', 'Feedback type', 'Question template',
+                        'Created by', 'Created on', 'Feedback recipient ID',
+                        'Feedback recipient name', 'Feedback recipient status',
+                        'Gender', 'Feedback recipient email ID', 'DOJ',
+                        'Organzation unit', 'Department', 'Designation', 'Location',
+                        'Rater Group', 'Rate Group', 'Rater type', 'Rater ID',
+                        'Rater name', 'Rater status', 'Rater email ID', 'Rating',
+                        'Comment', 'Declined Comment', 'Name', 'Question'
+                    ]
+
+                    for rid, recipient_rows in recipient_groups.items():
+                        if not recipient_rows:
+                            continue
+
+                        # Profile
+                        profile = extract_profile(recipient_rows)
+                        employee_name = get_display_name(
+                            recipient_rows[0].get("Feedback recipient name")
+                        )
+
+                        # Build category_data for this recipient only
+                        category_data = {}
+                        general_competency = {}
+
+                        if "Name" in recipient_rows[0]:
+                            grouped_by_name = defaultdict(list)
+                            for row in recipient_rows:
+                                grouped_by_name[row.get("Name")].append(row)
+
+                            category_data = {
+                                "Leadership": grouped_by_name.get("Leadership", []),
+                                "Leadership Feedback": grouped_by_name.get("Leadership Feedback", []),
+                                "Bandwidth": grouped_by_name.get("Bandwidth", []),
+                                "Bandwidth Feedback": grouped_by_name.get("Bandwidth Feedback", []),
+                                "Sales and Customer Centricity": grouped_by_name.get("Sales and Customer Centricity", []),
+                                "Sales and Customer Centricity Feedback": grouped_by_name.get("Sales and Customer Centricity Feedback", []),
+                                "Collaboration": grouped_by_name.get("Collaboration", []),
+                                "Collaboration Feedback": grouped_by_name.get("Collaboration Feedback", []),
+                                "Operational Excellence": grouped_by_name.get("Operational Excellence", []),
+                                "Operational Excellence Feedback": grouped_by_name.get("Operational Excellence Feedback", []),
+                                "Result Orientation": grouped_by_name.get("Result Orientation", []),
+                                "Result Orientation Feedback": grouped_by_name.get("Result Orientation Feedback", []),
+                                "Expertise and Communication": grouped_by_name.get("Expertise and Communication", []),
+                                "Expertise and Communication Feedback": grouped_by_name.get("Expertise and Communication Feedback", []),
+                            }
+                        else:
+                            columns = list(recipient_rows[0].keys())
+                            for col in columns:
+                                if "Average" in col:
+                                    continue
+                                category, question = extract_category(col)
+                                if category:
+                                    if category not in category_data:
+                                        category_data[category] = []
+
+                                    values_by_rate_group = {}
+                                    is_feedback = "Feedback" in category
+
+                                    for row in recipient_rows:
+                                        rg = (
+                                            row.get("Rate Group")
+                                            or row.get("Rater Group")
+                                            or row.get("Rater type")
+                                            or "Unknown"
+                                        )
+                                        value = row.get(col)
+
+                                        if is_feedback:
+                                            if value is not None:
+                                                values_by_rate_group.setdefault(rg, []).append(value)
+                                        else:
+                                            score_match = re.search(r"\d+", str(value)) if value is not None else None
+                                            if not score_match:
+                                                continue
+                                            score = int(score_match.group())
+                                            values_by_rate_group.setdefault(rg, []).append(score)
+
+                                    category_data[category].append({question: values_by_rate_group})
+                                else:
+                                    if question and question not in exceptItem:
+                                        general_competency[question] = [r.get(col) for r in recipient_rows]
+
+                        behavioural_indications = CommonFunctions.lbscore_broken_down_by_behavioural_indications(category_data)
+
+
+                        for _q, _items in behavioural_indications.items():
+                            for _item in _items:
+                                _score = _item.get("score", {})
+                                for _key in ("Manager", "Peer", "Subordinate", "Self"):
+                                    if _key not in _score:
+                                        _score[_key] = 0
+
+                        overall_behavioural_indications, feedbacks = CommonFunctions.lbscore_overall_summary_of_scores(category_data)
+                        hidden_strengths, blind_spots, area_of_improvements, strengths = CommonFunctions.get_highlights(behavioural_indications)
+
+                        # Participant vs cohort
+                        try:
+                            participant_and_cohort_summary = CommonFunctions.calculate_participant_and_cohort_rating(
+                                employee_wise_category_data, employee_name
+                            )
+                        except (KeyError, Exception):
+                            participant_and_cohort_summary = {}
+
+                        per_recipient_results.append({
+                            "employee_id": rid,
+                            "employee_name": employee_name,
+                            "profile": profile,
+                            "behavioural_indications": behavioural_indications,
+                            "overall_behavioural_indications": overall_behavioural_indications,
+                            "feedbacks": feedbacks,
+                            "hidden_strengths": hidden_strengths,
+                            "blind_spots": blind_spots,
+                            "area_of_improvements": area_of_improvements,
+                            "strengths": strengths,
+                            "general_competency": general_competency,
+                            "participant_and_cohort_summary": participant_and_cohort_summary,
+                        })
+
+                    competency_summary = CommonFunctions.get_competency_summary(employee_wise_category_data)
+
+                    for result in per_recipient_results:
+                        result["competency_summary"] = competency_summary.get(result["employee_name"], {})
+
                     return {
-                        "profile":profile,
-                        "behavioural_indications": behavioural_indications,
-                        "overall_behavioural_indications":overall_behavioural_indications,
-                        "general_competency": general_competency,
-                        "feedbacks":feedbacks,
-                        "hidden_strengths":hidden_strengths,
-                        "blind_spots":blind_spots,
-                        "area_of_improvements":area_of_improvements,
-                        "strengths":strengths,
-                        "competency_summary":competency_summary
-                      }
-                    # yield json.dumps(file1_data)
+                        "recipients": per_recipient_results,
+                    }
                 pre = await asyncio.to_thread(preprocess_base_sync, files)
-                payload = {'type': 'profile', 'data': pre.get('profile', {})}
-                yield f"data: {json.dumps(payload)}\n\n"
-                payload = {'type': 'behavioural_indications', 'data': pre.get('behavioural_indications', {})}
-                yield f"data: {json.dumps(payload)}\n\n"
-                payload = {'type': 'feedbacks', 'data': pre.get('feedbacks', {})}
-                yield f"data: {json.dumps(payload)}\n\n"
-                payload = {'type': 'overall_behavioural_indications', 'data': pre.get('overall_behavioural_indications', {})}
-                yield f"data: {json.dumps(payload)}\n\n"
-                payload = {'type': 'hidden_strengths', 'data': pre.get('hidden_strengths', {})}
-                yield f"data: {json.dumps(payload)}\n\n"
-                payload = {'type': 'blind_spots', 'data': pre.get('blind_spots', {})}
-                yield f"data: {json.dumps(payload)}\n\n"
-                payload = {'type': 'area_of_improvements', 'data': pre.get('area_of_improvements', {})}
-                yield f"data: {json.dumps(payload)}\n\n"
-                payload = {'type': 'strengths', 'data': pre.get('strengths', {})}
-                yield f"data: {json.dumps(payload)}\n\n"
-                payload = {'type': 'general_competency', 'data': pre.get('general_competency', {})}
-                yield f"data: {json.dumps(payload)}\n\n"
-                payload = {'type': 'competency_summary', 'data': pre.get('competency_summary', {})}
-                yield f"data: {json.dumps(payload)}\n\n"
+
+                for recipient in pre.get("recipients", []):
+                    payload = {
+                        "type": "recipient_data",
+                        "employee_id": recipient.get("employee_id", "unknown"),
+                        "data": {
+                            "profile": recipient.get("profile", {}),
+                            "participant_and_cohort_summary": recipient.get("participant_and_cohort_summary", {}),
+                            "behavioural_indications": recipient.get("behavioural_indications", {}),
+                            "feedbacks": recipient.get("feedbacks", {}),
+                            "overall_behavioural_indications": recipient.get("overall_behavioural_indications", {}),
+                            "hidden_strengths": recipient.get("hidden_strengths", []),
+                            "blind_spots": recipient.get("blind_spots", []),
+                            "area_of_improvements": recipient.get("area_of_improvements", []),
+                            "strengths": recipient.get("strengths", []),
+                            "general_competency": recipient.get("general_competency", {}),
+                            "competency_summary": recipient.get("competency_summary", {}),
+                        }
+                    }
+                    yield f"data: {json.dumps(payload)}\n\n"
+
                 yield "data: [DONE]\n\n"
 
             except Exception as e:

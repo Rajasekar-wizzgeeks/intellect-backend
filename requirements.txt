@@ -5,3 +5,10 @@ scikit-learn
 google-genai
 redis
 rq
+mongoengine
+PyJWT
+python-multipart
+python-dotenv
+uvicorn
+passlib[bcrypt]==1.7.4
+bcrypt==4.0.1

@@ -962,3 +962,135 @@ FINAL CHECK BEFORE OUTPUT
 Return ONLY the JSON output.
 """
 
+FREQUENTLY_OCCURING_SUGGESTIONS = """
+
+You are an educational leadership analytics AI.
+
+You will receive JSON data containing:
+- employee
+- question
+- rater_type
+
+IMPORTANT:
+The input data is already normalized:
+- "Subordinates" and "Others" are already merged as "Team"
+- "Manager" remains as "Manager"
+
+Your task is to identify questions/comments that are semantically similar even if the wording is different.
+
+You should ONLY group questions/comments when:
+- they express the SAME underlying meaning
+- they describe the SAME behavioural concern
+- they refer to the SAME leadership quality
+
+Do NOT group questions merely because they belong to the same broad category.
+
+For example:
+
+GROUP:
+- "Needs calmer communication"
+- "Avoids harsh tone"
+- "Gets angry during meetings"
+
+Because they represent:
+- communication behaviour / emotional control
+
+DO NOT GROUP:
+- "Supports teachers"
+- "Develops future leaders"
+
+because they represent different leadership behaviours.
+
+IMPORTANT RULES:
+
+1. Group ONLY strongly semantically similar questions/comments.
+2. Do NOT create broad generic themes.
+3. Do NOT over-cluster unrelated leadership concepts.
+4. Preserve behavioural specificity.
+5. The theme title should represent the shared meaning of grouped items.
+6. If a question/comment is unique, keep it as a separate theme.
+7. Separate:
+   - team_feedback
+   - manager_feedback
+8. Ignore exact duplicate entries.
+9. Employees should be unique inside each theme.
+10. Do NOT hallucinate data.
+11. Return STRICT JSON only.
+12. A question/comment should belong to only ONE theme.
+13. Prefer smaller accurate clusters over large vague clusters.
+
+OUTPUT FORMAT:
+
+{
+  "team_feedback": [
+    {
+      "theme": "...",
+      "employees": [],
+      "questions": []
+    }
+  ],
+
+  "manager_feedback": [
+    {
+      "theme": "...",
+      "employees": [],
+      "questions": []
+    }
+  ]
+}
+
+Return only valid JSON.
+"""
+
+
+LEADER_PROFILE_PROMPT = """
+You are an educational leadership analytics AI.
+
+You will receive:
+
+1. Highest rated team leadership behaviours
+2. Lowest rated team leadership behaviours
+
+Your task is to generate:
+
+1. Leadership strengths
+2. Leadership development areas
+
+IMPORTANT RULES:
+
+1. Infer behavioural meaning from the questions.
+2. Do NOT repeat the question text directly.
+3. Generate concise professional leadership insights.
+4. Keep each point short and human-readable.
+5. Focus on leadership behaviour and management style.
+6. Strengths must come only from highest rated behaviours.
+7. Development areas must come only from lowest rated behaviours.
+8. Do NOT hallucinate unsupported traits.
+9. Avoid generic corporate language.
+10. Return STRICT JSON only.
+11. Maximum:
+   - 4 strengths
+   - 4 development areas
+
+EXAMPLES:
+
+Question:
+"Provides enough support and guidance"
+
+Output:
+"Supportive and accessible leader"
+
+Question:
+"Leads without aggression or arrogance"
+
+Output:
+"Maintains calm and respectful leadership"
+
+Question:
+"Needs improvement in delegation"
+
+Output:
+"Should empower team members more effectively"
+
+Return ONLY valid JSON.
+"""

@@ -136,3 +136,139 @@ ACTION_AREAS_FEEDBACK_SCHEMA = {
         "stop"
     ]
 }
+
+
+LEADERSHIP_THEME_CLUSTER_SCHEMA = {
+    "type": "object",
+    "properties": {
+
+        "team_feedback": {
+            "type": "array",
+
+            "items": {
+                "type": "object",
+
+                "properties": {
+
+                    "theme": {
+                        "type": "string",
+                        "description": "Concise semantic theme representing similar leadership behaviours or feedback."
+                    },
+
+                    "employees": {
+                        "type": "array",
+
+                        "items": {
+                            "type": "string"
+                        },
+
+                        "description": "Unique employee names associated with this theme."
+                    },
+
+                    "questions": {
+                        "type": "array",
+
+                        "items": {
+                            "type": "string"
+                        },
+
+                        "description": "Semantically similar questions/comments grouped under the same theme."
+                    }
+                },
+
+                "required": [
+                    "theme",
+                    "employees",
+                    "questions"
+                ]
+            },
+
+            "description": "Clustered semantically similar team feedback themes."
+        },
+
+        "manager_feedback": {
+            "type": "array",
+
+            "items": {
+                "type": "object",
+
+                "properties": {
+
+                    "theme": {
+                        "type": "string",
+                        "description": "Concise semantic theme representing similar leadership behaviours or feedback."
+                    },
+
+                    "employees": {
+                        "type": "array",
+
+                        "items": {
+                            "type": "string"
+                        },
+
+                        "description": "Unique employee names associated with this theme."
+                    },
+
+                    "questions": {
+                        "type": "array",
+
+                        "items": {
+                            "type": "string"
+                        },
+
+                        "description": "Semantically similar questions/comments grouped under the same theme."
+                    }
+                },
+
+                "required": [
+                    "theme",
+                    "employees",
+                    "questions"
+                ]
+            },
+
+            "description": "Clustered semantically similar manager feedback themes."
+        }
+    },
+
+    "required": [
+        "team_feedback",
+        "manager_feedback"
+    ]
+}
+
+LEADER_PROFILE_SCHEMA = {
+    "type": "object",
+
+    "properties": {
+
+        "strengths": {
+
+            "type": "array",
+
+            "items": {
+                "type": "string"
+            },
+
+            "description":
+                "Leadership strengths inferred from highest-rated team behaviours."
+        },
+
+        "development_areas": {
+
+            "type": "array",
+
+            "items": {
+                "type": "string"
+            },
+
+            "description":
+                "Leadership improvement areas inferred from lowest-rated team behaviours."
+        }
+    },
+
+    "required": [
+        "strengths",
+        "development_areas"
+    ]
+}

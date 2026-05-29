@@ -5,6 +5,10 @@ import threading
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from collections import defaultdict
+import asyncio
+import json
+import numpy as np
+
 
 class CommonFunctions:
 
@@ -442,7 +446,7 @@ class CommonFunctions:
         final_output = dict(
             sorted(
                 final_output.items(),
-                key=lambda x: (x[1].get("Subordinates") is None, x[1].get("Subordinates", 0)),
+                key=lambda x: (x[1].get("Subordinates") is None, x[1].get("Subordinates") or 0),
                 reverse=True
             )
         )
@@ -866,13 +870,34 @@ class CommonFunctions:
             if not value:
                 return None
 
-            value = str(value)
+            value = str(value).strip()
+
+            if value.upper() == "NA":
+                return None
 
             parts = value.split("–")
             try:
                 return int(parts[0].strip())
             except:
                 return None
+           
+        def get_highlight(self_score, others_avg):
+                if self_score == "NA" or others_avg == "NA":
+                    return ""
+                if self_score >= 3.5 and others_avg >= 3.5:
+                    return "Strength"
+                elif self_score <= 3.0 and others_avg <= 3.5:
+                    return "Area of Improvement"
+                elif (self_score <= 3.0 and others_avg > 3.5 and (others_avg - self_score) >= 0.5):
+                    return "Hidden Strength"
+                elif (self_score >= 3.5 and others_avg <= 3.0 and (self_score - others_avg) >= 0.5):
+                    return "Blind Spot"
+                return ""           
+
+        def get_others_avg(score):
+           others = [s_value for s_type, s_value in score.items() if s_type != "Self" and s_value != "NA"]
+           return round(sum(others) / len(others), 2) if others else "NA"             
+
         result=defaultdict(list)
         if not isinstance(category_data,dict):
             return {}
@@ -881,59 +906,51 @@ class CommonFunctions:
                 continue
 
             for category_item in category_items:
-                 for question,values in category_item.items():
+                if not isinstance(category_item,dict):
+                    continue
+                for question,values in category_item.items():
                     score = {}
                     gap ={}
-                    highlight={}
                     for rater_type,values in values.items():
-                        num = [extract_score(v) for v in values if extract_score(v) is not None ]
-                        avg = round(sum(num)/len(num)) if num else 0
-                        score[rater_type] = avg
+                        num = [extract_score(v) for v in values if extract_score(v) is not None]
 
-                    self_score = score.get("Self",0)
-                    
-                    def get_highlight(self_score,others_avg,diff_avg):
-                        if self_score >= 3.5 and others_avg >= 3.5:
-                            return "Strength"
-
-                        elif self_score <= 3.0 and others_avg <= 3.5:
-                            return "Area of Improvement"
-
-                        elif self_score <= 3.0 and others_avg > 3.5 and diff_avg >= 0.5:
-                            return "Hidden Strength"
-
-                        elif self_score >= 3.5 and others_avg <= 3.0 and diff_avg <= -0.5:
-                            return "Blind Spot"
-
+                        if not num:
+                            score[rater_type] = "NA"
                         else:
-                            return "Proficient"
+                            score[rater_type] = round(sum(num) / len(num),2)
 
-                    def get_others_avg(score):
-                        others = [s_value for s_type,s_value in score.items() if s_type != "Self"]
-                        return round(sum(others)/len(others)) if others else 0
+                    self_score = score.get("Self", "NA")
+                 
                     others_avg = get_others_avg(score)
-                    diff_avg = abs(self_score - others_avg)
-                    hlight = get_highlight(self_score, others_avg, diff_avg)
-                    gap["self_gap"] = abs(self_score - self_score)
-                    gap["manager_gap"] = abs(self_score - score.get("Manager",0))
-                    gap["peer_avg"] = abs(self_score - score.get("Peer",0))
-                    gap["subordinate_avg"] = abs(self_score - score.get("Subordinate",0))
+                    hlight = get_highlight(self_score,others_avg)
+
+                    gap["self_gap"] = 0
+
+                    gap["manager_gap"] = (
+                        round(abs(self_score - score.get("Manager")),2)
+                        if self_score != "NA" and score.get("Manager") is not None and score.get("Manager") != "NA"
+                        else "NA"
+                    )
+
+                    gap["peer_avg"] = (
+                        round(abs(self_score - score.get("Peer")),2)
+                        if self_score != "NA" and score.get("Peer") is not None and score.get("Peer") != "NA"
+                        else "NA"
+                    )
+
+                    gap["subordinate_avg"] = (
+                        round(abs(self_score - score.get("Subordinate")),2)
+                        if self_score != "NA" and score.get("Subordinate") is not None and score.get("Subordinate") != "NA"
+                        else "NA"
+                    )
 
 
                     result[question].append({
                         "score":score,
-                        "gap":gap
+                        "gap":gap,
+                        "highlight": hlight
                     })
 
-
-                              
-                        # final[question] = {
-                        #     "self_score": self_score,
-                        #     "others_avg": others_avg,
-                        #     "diff_avg": diff_avg,
-                        #     "highlight": highlight
-                        # }
-                        # result[question].append(final)
 
         return result
     
@@ -1057,33 +1074,716 @@ class CommonFunctions:
 
                     
     @staticmethod
-    def get_competency_summary(overall_behavioural_indications):
-        total_score = 0.0
-        weights = {
-        "Leadership": 50,
-        "Bandwidth": 100,
-        "Sales and Customer Centricity": 100,
-        "Collaboration": 50,
-        "Operational Excellence": 100,
-        "Result Orientation": 50,
-        "Expertise and Communication": 50
-         }
+    def get_competency_summary(employee_wise_category_data):
 
-        for competency, values in overall_behavioural_indications.items():
+        ROLE_WEIGHTS = {
+            "Delivery": {
+                "Leadership": 50,
+                "Bandwidth": 100,
+                "Sales and Customer Centricity": 100,
+                "Collaboration": 50,
+                "Operational Excellence": 100,
+                "Result Orientation": 50,
+                "Expertise and Communication": 50
+            },
 
-            manager = values.get("manager_avg", 0)
-            peer = values.get("peer_avg", 0)
-            subordinate = values.get("subordinate_avg", 0)
+            "Business": {
+                "Leadership": 50,
+                "Bandwidth": 50,
+                "Sales and Customer Centricity": 100,
+                "Collaboration": 50,
+                "Operational Excellence": 50,
+                "Result Orientation": 100,
+                "Expertise and Communication": 100
+            },
 
-            others_avg = (manager + peer + subordinate) / 3
+            "Corp": {
+                "Leadership": 50,
+                "Bandwidth": 50,
+                "Sales and Customer Centricity": 50,
+                "Collaboration": 100,
+                "Operational Excellence": 50,
+                "Result Orientation": 100,
+                "Expertise and Communication": 100
+            },
 
-            weight = weights.get(competency, 0)
+            "CEO": {
+                "Leadership": 100,
+                "Bandwidth": 50,
+                "Sales and Customer Centricity": 100,
+                "Collaboration": 50,
+                "Operational Excellence": 50,
+                "Result Orientation": 100,
+                "Expertise and Communication": 50
+            }
+        }
 
-            weighted_score = (others_avg / 5) * weight
+        employee_results = {}
 
-            total_score += weighted_score
+        all_scores = []
 
-        return round(total_score, 2)
+        stream_scores = {}
+
+        for employee_name, employee_data in employee_wise_category_data.items():
+
+            total_score = 0.0
+
+            competency_summary = {}
+
+            role = (employee_data[0].get("Function")or "Business")
+
+            weights = ROLE_WEIGHTS.get(role,ROLE_WEIGHTS["Business"])
+
+            competencies = set()
+
+            for response in employee_data:
+
+                for key in response.keys():
+
+                    if key not in [
+                        "Function",
+                        "Rater type"
+                    ] and "Feedback" not in key:
+
+                        competencies.add(key)
+
+            for competency in competencies:
+
+                manager_scores = []
+                peer_scores = []
+                subordinate_scores = []
+                self_scores = []
+
+                for response in employee_data:
+
+                    rater_type = response.get(
+                        "Rater type"
+                    )
+
+                    scores = response.get(
+                        competency,
+                        []
+                    )
+
+                    if rater_type == "Manager":
+                        manager_scores.extend(scores)
+
+                    elif rater_type == "Peer":
+                        peer_scores.extend(scores)
+
+                    elif rater_type == "Subordinate":
+                        subordinate_scores.extend(scores)
+
+                    elif rater_type == "Self":
+                        self_scores.extend(scores)
+
+                manager_avg = round(
+                    np.mean(manager_scores),
+                    2
+                ) if manager_scores else 0
+
+                peer_avg = round(
+                    np.mean(peer_scores),
+                    2
+                ) if peer_scores else 0
+
+                subordinate_avg = round(
+                    np.mean(subordinate_scores),
+                    2
+                ) if subordinate_scores else 0
+
+                self_avg = round(
+                    np.mean(self_scores),
+                    2
+                ) if self_scores else 0
+
+                others_avg = round(
+                    (
+                        manager_avg +
+                        peer_avg +
+                        subordinate_avg
+                    ) / 3,
+                    2
+                )
+
+                weight = weights.get(
+                    competency,
+                    0
+                )
+
+                weighted_score = round(
+                    (others_avg / 5) * weight,
+                    2
+                )
+
+                total_score += weighted_score
+
+                competency_summary[
+                    competency
+                ] = {
+                    "manager_avg": manager_avg,
+                    "peer_avg": peer_avg,
+                    "subordinate_avg": subordinate_avg,
+                    "self_avg": self_avg,
+                    "others_avg": others_avg,
+                    "weight": weight,
+                    "weighted_score": weighted_score
+                }
+
+     
+
+            overall_score = round(
+                total_score,
+                2
+            )
+
+            all_scores.append(overall_score)
+
+
+            if role not in stream_scores:
+                stream_scores[role] = []
+
+            stream_scores[role].append(
+                overall_score
+            )
+
+
+            employee_results[employee_name] = {
+                "role": role,
+                "overall_score": overall_score,
+                "competency_summary": competency_summary
+            }
+
+        cohort_q1 = round(
+            np.percentile(all_scores, 25),
+            2
+        )
+
+        cohort_median = round(
+            np.percentile(all_scores, 50),
+            2
+        )
+
+        cohort_q3 = round(
+            np.percentile(all_scores, 75),
+            2
+        )
+
+        final_output = {}
+
+        for employee_name, result in employee_results.items():
+
+            overall_score = result[
+                "overall_score"
+            ]
+
+            role = result["role"]
+
+            if overall_score <= cohort_q1:
+                cohort_position = "1st Quartile"
+
+            elif overall_score <= cohort_median:
+                cohort_position = "2nd Quartile"
+
+            elif overall_score <= cohort_q3:
+                cohort_position = "3rd Quartile"
+
+            else:
+                cohort_position = "4th Quartile"
+
+            role_scores = stream_scores[role]
+
+            stream_q1 = round(
+                np.percentile(role_scores, 25),
+                2
+            )
+
+            stream_median = round(
+                np.percentile(role_scores, 50),
+                2
+            )
+
+            stream_q3 = round(
+                np.percentile(role_scores, 75),
+                2
+            )
+
+            if overall_score <= stream_q1:
+                stream_position = "1st Quartile"
+
+            elif overall_score <= stream_median:
+                stream_position = "2nd Quartile"
+
+            elif overall_score <= stream_q3:
+                stream_position = "3rd Quartile"
+
+            else:
+                stream_position = "4th Quartile"
+
+            final_output[employee_name] = {
+
+                "role": role,
+
+                "overall_score": overall_score,
+
+                "competency_summary": result["competency_summary"],
+
+                "quartile_by_cohort": {
+
+                    "position": cohort_position,
+
+                    "quartiles": {
+
+                        "minimum_score": min(all_scores),
+
+                        "first_quartile": cohort_q1,
+
+                        "median": cohort_median,
+
+                        "third_quartile": cohort_q3,
+
+                        "maximum_score": max(all_scores)
+                    }
+                },
+
+
+                "quartile_by_stream": {
+
+                    "position": stream_position,
+
+                    "quartiles": {
+
+                        "minimum_score": min(role_scores),
+
+                        "first_quartile": stream_q1,
+
+                        "median": stream_median,
+
+                        "third_quartile": stream_q3,
+
+                        "maximum_score": max(role_scores)
+                    }
+                }
+            }
+
+        return final_output
+
+    
+    @staticmethod
+    def get_headlines(overall_questionwise_data):
+        highest_team_avg=sorted(
+            [
+                item for item in overall_questionwise_data.items()
+                if item[1].get("Subordinates") is not None
+            ],
+            key=lambda x: x[1].get("Subordinates") or 0,
+            reverse=True)[:5]
+
+        lowest_team_avg = sorted(
+            [
+                item for item in overall_questionwise_data.items()
+                if item[1].get("Subordinates") is not None
+            ],
+            key=lambda x: x[1].get("Subordinates") or 0,
+            reverse=False)[:5]
+
+        highest_manager_avg = sorted(
+            [
+                item for item in overall_questionwise_data.items()
+                if item[1].get("Manager") is not None
+            ],
+            key=lambda x: x[1].get("Manager") or 0,
+            reverse=True)[:5]
+        
+        lowest_manager_avg = sorted(
+            [
+                item for item in overall_questionwise_data.items()
+                if item[1].get("Manager") is not None
+            ],
+            key=lambda x: x[1].get("Manager") or 0,
+            reverse=False)[:5]
+
+        return highest_team_avg, lowest_team_avg, highest_manager_avg, lowest_manager_avg
+
+    @staticmethod
+    def get_overall_averages_by_principal(all_records):
+        employee_summary = defaultdict(
+            lambda: {
+                "team_total": 0,
+                "team_count": 0,
+                "manager_total": 0,
+                "manager_count": 0
+            }
+        )
+        for row in all_records:
+           employee = row.get("Employee Name")   
+           if not employee:
+             continue
+           rater_type = row.get("Rate Group","") or row.get("Rater Group","") or row.get("Rater type","") 
+           rater_type = rater_type.strip().lower()
+           rating = row.get("Rating")
+           if not isinstance(rating, (int,float)):
+            continue
+           if rater_type in ["subordinates","others"]:
+             employee_summary[employee]["team_total"] += rating
+             employee_summary[employee]["team_count"] += 1
+       
+           elif "manager" in rater_type:
+             employee_summary[employee]["manager_total"] += rating
+             employee_summary[employee]["manager_count"] += 1
+       
+        team_summary=[]
+        manager_summary=[]
+        for employee, data in employee_summary.items():
+            if data["team_count"] > 0:
+                avg = round(data["team_total"] / data["team_count"], 2)
+                team_summary.append({"employee": employee, "average": avg,  "responses":
+                data["team_count"]})
+            if data["manager_count"] > 0:
+                avg = round(data["manager_total"] / data["manager_count"], 2)
+                manager_summary.append({"employee": employee, "average": avg, "responses":
+                data["manager_count"]})
+
+
+        team_summary = sorted(team_summary, key=lambda x: x["average"],reverse=True)
+        manager_summary = sorted(manager_summary, key=lambda x: x["average"],reverse=True)
+
+        overall_principal_averages = {
+            "team_summary": team_summary,
+            "manager_summary": manager_summary
+        }
+
+        return overall_principal_averages
+
+    @staticmethod
+    def get_summary_framework_recap(all_records):
+        principal_names = set()
+
+        survey_questions = set()
+
+        competencies = set()
+
+        available_groups = set()
+
+        for row in all_records:
+
+            employee = row.get("Employee Name")
+
+            if employee:
+                principal_names.add(employee)
+
+            question = row.get("Question")
+
+            if question:
+                survey_questions.add(question)
+
+            competency = row.get("Name")
+
+            if competency and competency != "General":
+
+                competencies.add(competency)
+
+            group = (
+                row.get("Rater Group")
+                or row.get("Rate Group")
+            )
+
+            if group:
+                available_groups.add(group)
+
+        principal_count = len(principal_names)
+
+        survey_question_count = len(survey_questions)
+
+        competency_count = len(competencies)
+
+        qualitative_question_count = 5
+
+        total_questions = (
+            survey_question_count
+            + qualitative_question_count
+        )
+
+        survey_framework_recap = {
+
+            "principal_count":principal_count,
+
+            "responses_given_by":list(available_groups),
+
+            "survey_question_count":survey_question_count,
+
+            "qualitative_question_count":qualitative_question_count,
+
+            "total_questions":total_questions,
+
+            "competency_count":competency_count,
+
+            "competencies":list(competencies)
+        }
+
+        return survey_framework_recap
+
+    @staticmethod
+    def get_all_comments(all_records):
+       comments = []
+       seen = set()
+       for record in all_records:
+           rater_type = record.get("Rate Group","") or record.get("Rater Group","") or record.get("Rater type","") 
+           rater_type = rater_type.strip().lower()
+           employee_name = record.get("Employee Name","")
+           question = record.get("Question","")
+           if rater_type in ["subordinates","others"]:
+              normalized_group ="team"
+           else:
+              normalized_group ="manager"
+           comment_key = f"{employee_name}_{question}_{normalized_group}"
+           if comment_key not in seen:
+               seen.add(comment_key)
+               comments.append({"employee": employee_name, "question": question,"rater_type":normalized_group})    
+       return comments
+           
+           
+    @staticmethod
+    def get_employee_wise_overall_data(all_records):
+        employee_wise_data = defaultdict(list)
+        for r in all_records:
+            employee_name = r.get("Employee Name","") or r.get("Feedback recipient name")
+            if not employee_name:
+                continue
+            employee_wise_data[employee_name].append(r)
+        return employee_wise_data
+
+    @staticmethod
+    def get_leadership_profiles(employee_wise_overall_data):
+        employee_cards = []
+        for employee,rows in employee_wise_overall_data.items():
+            question_wise_data = CommonFunctions.questionwise_avg_by_rate_group(rows)
+            highest_team_avg,lowest_team_avg,highest_manager_avg,lowest_manager_avg = CommonFunctions.get_headlines(question_wise_data)
+            team_response_count = 0
+            manager_response_count = 0
+            for r in rows:
+                rater_type = r.get("Rate Group","") or r.get("Rater Group","") or r.get("Rater type","")
+                rater_type = rater_type.strip().lower()
+                if rater_type in ["subordinates","others","teams"]:
+                    team_response_count += 1
+                elif "manager" in rater_type:
+                    manager_response_count += 1   
+            formatted_highest_team = []
+            formatted_lowest_team = []
+            formatted_highest_manager = []
+            formatted_lowest_manager = []
+
+            
+
+            for question, values in highest_team_avg:
+                formatted_highest_team.append({"question":question,"average":values.get("Subordinates")})
+            
+            for question, values in lowest_team_avg:
+                formatted_lowest_team.append({"question":question,"average":values.get("Subordinates")})
+
+            for question, values in highest_manager_avg:
+                formatted_highest_manager.append({"question":question,"average":values.get("Manager")})
+
+            for question, values in lowest_manager_avg:
+                formatted_lowest_manager.append({"question":question,"average":values.get("Manager")})
+ 
+            
+            employee_cards.append({
+                    "employee":employee,
+                    "team_responses":team_response_count,
+                    "manager_responses":manager_response_count,
+                    "highest_team_avg":formatted_highest_team,
+                    "lowest_team_avg":formatted_lowest_team,
+                    "highest_manager_avg":formatted_highest_manager,
+                    "lowest_manager_avg":formatted_lowest_manager,
+                })
+            
+        return employee_cards
+        
+    @staticmethod
+    def get_competency_summary_institution(competency_data):
+        values = []
+
+        for question, value in competency_data.items():
+          for group, val in value.items():
+            if group == "Self":
+                continue
+
+            if val is not None:
+                values.append(val)
+
+        if not values:
+            return {
+                "min": 0,
+                "avg": 0,
+                "max": 0
+            }
+
+        return {
+
+            "min":round(min(values), 2),
+
+            "avg":round(sum(values) / len(values),2),
+
+            "max":round(max(values), 2)
+        }
+    
+  
+    @staticmethod
+    def calculate_participant_and_cohort_rating(employee_wise_category_data,target_employee):
+
+        participant_data = (
+            employee_wise_category_data[
+                target_employee
+            ]
+        )
+
+        competencies = set()
+
+        for response in participant_data:
+
+            for key in response.keys():
+
+                if key not in [
+                    "Function",
+                    "Rater type"
+                ]:
+                    competencies.add(key)
+
+        final_output = {}
+
+        for competency in competencies:
+
+            if "Feedback" in competency:
+                continue
+
+            your_rating = {
+                "self": [],
+                "manager": [],
+                "peer": [],
+                "team_member": []
+            }
+
+            for response in participant_data:
+
+                rater_type = (
+                    response["Rater type"]
+                )
+
+                scores = response.get(
+                    competency,
+                    []
+                )
+
+                avg = round(
+                    np.mean(scores),
+                    2
+                ) if scores else 0
+
+                if rater_type == "Self":
+                    your_rating["self"].append(avg)
+
+                elif rater_type == "Manager":
+                    your_rating["manager"].append(avg)
+
+                elif rater_type == "Peer":
+                    your_rating["peer"].append(avg)
+
+                elif rater_type == "Subordinate":
+                    your_rating[
+                        "team_member"
+                    ].append(avg)
+
+            # -------------------------------------------------
+            # FINAL PARTICIPANT AVG
+            # -------------------------------------------------
+
+            for key in your_rating:
+
+                values = your_rating[key]
+
+                your_rating[key] = round(
+                    np.mean(values),
+                    2
+                ) if values else 0
+
+            # -------------------------------------------------
+            # COHORT
+            # -------------------------------------------------
+
+            cohort_rating = {
+                "self": [],
+                "manager": [],
+                "peer": [],
+                "team_member": []
+            }
+
+            # all employees
+            for _, employee_data in (
+                employee_wise_category_data.items()
+            ):
+
+                for response in employee_data:
+
+                    rater_type = (
+                        response["Rater type"]
+                    )
+
+                    scores = response.get(
+                        competency,
+                        []
+                    )
+
+                    avg = round(
+                        np.mean(scores),
+                        2
+                    ) if scores else 0
+
+                    if rater_type == "Self":
+                        cohort_rating[
+                            "self"
+                        ].append(avg)
+
+                    elif rater_type == "Manager":
+                        cohort_rating[
+                            "manager"
+                        ].append(avg)
+
+                    elif rater_type == "Peer":
+                        cohort_rating[
+                            "peer"
+                        ].append(avg)
+
+                    elif rater_type == "Subordinate":
+                        cohort_rating[
+                            "team_member"
+                        ].append(avg)
+
+            # -------------------------------------------------
+            # FINAL COHORT AVG
+            # -------------------------------------------------
+
+            for key in cohort_rating:
+
+                values = cohort_rating[key]
+
+                cohort_rating[key] = round(
+                    np.mean(values),
+                    2
+                ) if values else 0
+
+            # -------------------------------------------------
+            # STORE
+            # -------------------------------------------------
+
+            final_output[competency] = {
+
+                "your_rating": your_rating,
+
+                "cohort_rating": cohort_rating
+            }
+
+        return final_output
 
     @staticmethod
     def timed_task(name, func, *args, **kwargs):
@@ -1096,7 +1796,5 @@ class CommonFunctions:
 
         end = time.time()
         print(f"[END]   {name} | Thread: {thread_id} | Duration: {round(end - start, 2)} sec")
-
-        return result
 
         return result
