@@ -7,3 +7,5 @@ env/
 *.env.new
 *.env.prod
 *.env
+
+.kiro
