@@ -88,24 +88,35 @@ class FeedbackDraftController:
         except Exception as e:
             raise ApiException(500, "Error saving feedback drafts " + str(e))
     
-    def get_feedback_draft(self,user):
+    def get_feedback_draft(self, user, page=1, per_page=10):
         try:
             user_id = user.get("user_id")
-            feedback_drafts = self.feedback_draft_model.objects(user_id=user_id)
-            if feedback_drafts:
-                return [{
-                    "id": str(feedback.id),
-                    "excel_name": feedback.excel_name,
-                    "reporttype": feedback.report_type,
-                    "created_at": feedback.created_at.isoformat() if feedback.created_at else None,
-                    "updated_at": feedback.updated_at.isoformat() if feedback.updated_at else None
-                } for feedback in feedback_drafts]
-            else:
-                return {
-                    "message": "No feedback draft found for this user"
+            page = max(page, 1)
+            per_page = max(1, min(per_page, 100))
+            skip = (page - 1) * per_page
+
+            total = self.feedback_draft_model.objects(user_id=user_id).count()
+            feedback_drafts = self.feedback_draft_model.objects(user_id=user_id).order_by("-updated_at").skip(skip).limit(per_page)
+
+            drafts = [{
+                "id": str(feedback.id),
+                "excel_name": feedback.excel_name,
+                "reporttype": feedback.report_type,
+                "created_at": feedback.created_at.isoformat() if feedback.created_at else None,
+                "updated_at": feedback.updated_at.isoformat() if feedback.updated_at else None
+            } for feedback in feedback_drafts]
+
+            return {
+                "data": drafts,
+                "pagination": {
+                    "total": total,
+                    "page": page,
+                    "per_page": per_page,
+                    "total_pages": (total + per_page - 1) // per_page if total > 0 else 0
                 }
+            }
         except Exception as e:
-            raise ApiException(500, "Error getting feedback draft"+ str(e))
+            raise ApiException(500, "Error getting feedback draft" + str(e))
 
     def get_feedback_draft_by_id(self,user, feedback_draft_id):
         try:

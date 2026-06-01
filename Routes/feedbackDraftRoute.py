@@ -20,7 +20,13 @@ async def create_multi_feedback_draft(request: Request):
 @feedback_draft_router.get("/get")
 async def get_feedback_draft(request: Request):
     user = request.scope["user"]
-    return controller.get_feedback_draft(user)
+    try:
+        page = int(request.query_params.get("page", 1))
+        per_page = int(request.query_params.get("per_page", 10))
+    except (ValueError, TypeError):
+        page = 1
+        per_page = 10
+    return controller.get_feedback_draft(user, page=page, per_page=per_page)
 
 @feedback_draft_router.get("/getOne")
 async def get_feedback_draft_by_id(feedback_draft_id: str, request: Request):
