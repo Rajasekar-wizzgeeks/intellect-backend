@@ -14,6 +14,7 @@ class FeedbackDraft(Document):
     
     def save(self, *args, **kwargs):
         self.updated_at = datetime.now(timezone.utc)
+        self._mark_as_changed('updated_at')
         return super().save(*args, **kwargs)
     
     def to_dict(self):
