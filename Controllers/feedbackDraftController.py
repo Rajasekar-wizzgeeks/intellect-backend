@@ -45,6 +45,48 @@ class FeedbackDraftController:
             raise
         except Exception as e:
             raise ApiException(500, "Error creating feedback draft "+ str(e))
+
+    def create_multi_feedback_draft(self, user, data):
+        try:
+            user_id = user.get("user_id", "")
+
+            # Accept either a list of drafts or a single draft object
+            drafts = data if isinstance(data, list) else [data]
+
+            saved_ids = []
+            for item in drafts:
+                feedback_data = item.get("feedback_data")
+                report_type = item.get("report_type")
+                excel_name = item.get("excel_name", "")
+                excel_name = excel_name.strip().lower().replace(" ", "_") if excel_name else ""
+
+                # Check if a draft already exists for this user + excel_name + report_type
+                existing = self.feedback_draft_model.objects(
+                    user_id=user_id,
+                    excel_name=excel_name,
+                    report_type=report_type
+                ).first()
+
+                if existing:
+                    existing.feedback_data = feedback_data
+                    existing.save()
+                    saved_ids.append(str(existing.id))
+                else:
+                    feedback_draft = self.feedback_draft_model(
+                        user_id=user_id,
+                        feedback_data=feedback_data,
+                        report_type=report_type,
+                        excel_name=excel_name
+                    )
+                    feedback_draft.save()
+                    saved_ids.append(str(feedback_draft.id))
+
+            return {
+                "message": f"{len(saved_ids)} feedback draft(s) saved successfully",
+                "ids": saved_ids
+            }
+        except Exception as e:
+            raise ApiException(500, "Error saving feedback drafts " + str(e))
     
     def get_feedback_draft(self,user):
         try:

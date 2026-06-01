@@ -11,6 +11,12 @@ async def create_feedback_draft(request: Request):
     data = await request.json()
     return controller.create_feedback_draft(user, data)
 
+@feedback_draft_router.post("/multi-save")
+async def create_multi_feedback_draft(request: Request):
+    user = request.scope["user"]
+    data = await request.json()
+    return controller.create_multi_feedback_draft(user, data)
+
 @feedback_draft_router.get("/get")
 async def get_feedback_draft(request: Request):
     user = request.scope["user"]
