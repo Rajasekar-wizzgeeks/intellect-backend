@@ -67,7 +67,7 @@ class LBscore360Controller:
                             "Stream": first_row.get("Department"),
                             "LOB": first_row.get("Organzation unit"),
                             "Role":first_row.get("Designation"),
-                            "Report Date": str(first_row.get("Created on")).replace("_","-"),
+                            "Report Date": str(first_row.get("Created on")).replace("_","-") if first_row.get("Created on") else datetime.now().strftime("%d-%m-%Y"),
                             "Assessed By": assessed_by
                         }
                     def get_display_name(raw_name):

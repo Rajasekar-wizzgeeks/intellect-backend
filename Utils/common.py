@@ -1026,8 +1026,13 @@ class CommonFunctions:
         strengths = []
         if not behavioural_datas:
             return [],[],[],[]
+
+        def strip_serial(q):
+            # Remove leading "1. ", "12. " etc.
+            return re.sub(r"^\d+\.\s*", "", q).strip()
         
         for question,behavioural_data in behavioural_datas.items():
+            clean_question = strip_serial(question)
             value = behavioural_data[0].get("score")
             m=value.get("Manager")
             s=value.get("Self")
@@ -1041,7 +1046,7 @@ class CommonFunctions:
             
             if gap_blind_spot >= 0.5 and s >= 3.5:
                 blind_spot_results.append({
-                    "question": question,
+                    "question": clean_question,
                     "self": s,
                     "others_avg": round(others, 2),
                     "gap": round(gap_blind_spot, 2)
@@ -1049,19 +1054,19 @@ class CommonFunctions:
             
             if gap_hidden_strength >= 0.5 and s <= 3:
                 hidden_strength_results.append({
-                   "question":question,
+                   "question": clean_question,
                    "self":s,
                    "others":round(others, 2),
                    "gap":round(gap_hidden_strength,2)
                 })  
 
             area_improvement_candidates.append({
-                "question":question,
+                "question": clean_question,
                 "others":round(others, 2),
             })
             
             strengths.append({
-                 "question":question,
+                 "question": clean_question,
                 "others":round(others, 2),
              })  
             area_improvement_candidates = sorted(area_improvement_candidates,key=lambda x:x["others"])[:5]
