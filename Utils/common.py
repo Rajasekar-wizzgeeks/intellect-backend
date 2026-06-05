@@ -919,7 +919,6 @@ class CommonFunctions:
 
                     self_score = score.get("Self", "NA")
 
-                    # Compute overall others average (excluding self)
                     others_values = []
                     for rater_type in ["Manager", "Peer", "Subordinate"]:
                         val = score.get(rater_type)
@@ -927,10 +926,8 @@ class CommonFunctions:
                             others_values.append(val)
                     others_avg = round(sum(others_values) / len(others_values), 2) if others_values else "NA"
 
-                    # Per-group highlights by comparing self with each individual rater group
                     highlights = {}
 
-                    # Overall self highlight: compare self against average of all others
                     highlights["self"] = get_highlight(self_score, others_avg)
 
                     manager_score = score.get("Manager", "NA")
