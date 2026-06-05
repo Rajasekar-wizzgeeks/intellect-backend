@@ -44,11 +44,12 @@ class UserController:
     
     def get_all_users(self,user_id):
         try:
-            users = self.user.objects(id__ne=user_id)
+            users = self.user.objects(id__ne=user_id,created_by=user_id)
             return [{
                 "id": str(user.id),
                 "email": user.email,
-                "role": user.role
+                "role": user.role,
+                "created_by":user.created_by
             } for user in users]
         except Exception as e:
             raise ApiException(500, "Error getting users", str(e))

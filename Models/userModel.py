@@ -8,6 +8,7 @@ class User(Document):
     updated_at = DateTimeField(default=lambda: datetime.now(timezone.utc))
     role = StringField(required=True, default="user",choices=["user","admin"])
     token = StringField(required=False)
+    created_by=StringField(required=True)
     meta = {
         "collection": "users",
         "indexes": [
