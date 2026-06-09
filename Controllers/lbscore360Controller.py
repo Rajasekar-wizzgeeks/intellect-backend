@@ -42,6 +42,8 @@ class LBscore360Controller:
                         if "Attribute Name" in df.columns:
                             df = df.rename(columns={"Attribute Name": "Name"})
                         df=df.replace([np.nan, np.inf, -np.inf], None)
+                        if "Feedback recipient name" in df.columns:
+                            df["Feedback recipient name"] = df["Feedback recipient name"].astype(str).str.lower()
                         for col in df.columns:
                             if pd.api.types.is_datetime64_any_dtype(df[col]):
                                 df[col] = df[col].astype(str)
@@ -55,6 +57,7 @@ class LBscore360Controller:
                         first_row = df.iloc[0]
 
                         raw_name = first_row.get("Feedback recipient name", "")
+                        raw_name = raw_name[0].upper() + raw_name[1:]
                         name = raw_name.split("(")[-1].replace(")", "").strip() if "(" in raw_name else raw_name
 
                         rater_types = df.get("Rater type")
@@ -138,9 +141,8 @@ class LBscore360Controller:
                                 if not current_rater:
                                     current_rater = {
                                         "Function": (
-                                            row.get("Department")
-                                            or row.get("Function")
-                                            or "Business"
+                                            row.get("Function")
+                                            or ""
                                         ),
                                         "Rater type": rg
                                     }
@@ -248,13 +250,13 @@ class LBscore360Controller:
 
                         behavioural_indications = CommonFunctions.lbscore_broken_down_by_behavioural_indications(category_data)
 
-
-                        for _q, _items in behavioural_indications.items():
-                            for _item in _items:
-                                _score = _item.get("score", {})
-                                for _key in ("Manager", "Peer", "Subordinate", "Self"):
-                                    if _key not in _score:
-                                        _score[_key] = 0
+                        for _cat, _questions in behavioural_indications.items():
+                            for _q, _items in _questions.items():
+                                for _item in _items:
+                                    _score = _item.get("score", {})
+                                    for _key in ("Manager", "Peer", "Subordinate", "Self"):
+                                        if _key not in _score:
+                                            _score[_key] = 0
 
                         overall_behavioural_indications, feedbacks = CommonFunctions.lbscore_overall_summary_of_scores(category_data)
                         hidden_strengths, blind_spots, area_of_improvements, strengths = CommonFunctions.get_highlights(behavioural_indications)

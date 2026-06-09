@@ -896,7 +896,7 @@ class CommonFunctions:
                 return "Proficient"
             return ""           
 
-        result=defaultdict(list)
+        result = {}
         if not isinstance(category_data,dict):
             return {}
         for category,category_items in category_data.items():
@@ -906,6 +906,8 @@ class CommonFunctions:
             for category_item in category_items:
                 if not isinstance(category_item,dict):
                     continue
+                if category not in result:
+                    result[category] = {}
                 for question,values in category_item.items():
                     score = {}
                     gap ={}
@@ -959,10 +961,14 @@ class CommonFunctions:
                         else "NA"
                     )
 
+                    clean_question = re.sub(r"^\d+\.\s*", "", question).strip()
 
-                    result[question].append({
-                        "score":score,
-                        "gap":gap,
+                    if clean_question not in result[category]:
+                        result[category][clean_question] = []
+
+                    result[category][clean_question].append({
+                        "score": score,
+                        "gap": gap,
                         "highlights": highlights
                     })
 
@@ -997,7 +1003,7 @@ class CommonFunctions:
                     for question,values in category_item.items():
                         for rater_type,r_values in values.items():
                             num = [extract_score(v) for v in r_values if extract_score(v) is not None ]
-                            avg = round(sum(num)/len(num)) if num else 0
+                            avg = sum(num)/len(num) if num else 0
             
                             if rater_type == "Manager":
                                 manager_sum += avg
@@ -1014,13 +1020,13 @@ class CommonFunctions:
                             elif rater_type == "Subordinate":
                                 subordinate_sum += avg
                                 subordinate_count += 1
-                final_manager_avg = round(manager_sum / manager_count, 1) if manager_count else 0   
-                final_self_avg = round(self_sum / self_count, 1) if self_count else 0
-                final_peer_avg = round(peer_sum / peer_count, 1) if peer_count else 0
-                final_subordinate_avg = round(subordinate_sum / subordinate_count, 1) if subordinate_count else 0
+                final_manager_avg = round(manager_sum / manager_count, 2) if manager_count else 0   
+                final_self_avg = round(self_sum / self_count, 2) if self_count else 0
+                final_peer_avg = round(peer_sum / peer_count, 2) if peer_count else 0
+                final_subordinate_avg = round(subordinate_sum / subordinate_count, 2) if subordinate_count else 0
                 final_total_avg_except_self=final_manager_avg+final_peer_avg+final_subordinate_avg
                 final_others_avg = round(final_total_avg_except_self/3)
-                spider_chart_others_avg=final_peer_avg+final_subordinate_avg
+                spider_chart_others_avg=round((final_peer_avg+final_subordinate_avg)/2,1)
                 category_wise_overall_scores[category] = {
                     "manager_avg": final_manager_avg,
                     "self_avg":final_self_avg,
@@ -1042,22 +1048,30 @@ class CommonFunctions:
             return [],[],[],[]
 
         def strip_serial(q):
-            # Remove leading "1. ", "12. " etc.
             return re.sub(r"^\d+\.\s*", "", q).strip()
-        
-        for question,behavioural_data in behavioural_datas.items():
+
+        def iter_questions(data):
+            for key, val in data.items():
+                if isinstance(val, dict) and val and isinstance(next(iter(val.values())), list):
+                    for q, items in val.items():
+                        yield q, items
+                else:
+                    yield key, val
+
+        for question, behavioural_data in iter_questions(behavioural_datas):
+            if not behavioural_data:
+                continue
             clean_question = strip_serial(question)
             value = behavioural_data[0].get("score")
-            m=value.get("Manager")
-            s=value.get("Self")
-            p=value.get("Peer")
-            sub=value.get("Subordinate")
+            m = value.get("Manager", 0) or 0
+            s = value.get("Self", 0) or 0
+            p = value.get("Peer", 0) or 0
+            sub = value.get("Subordinate", 0) or 0
 
-            others = (m+p+sub)/3
+            others = (m + p + sub) / 3
             gap_hidden_strength = others - s
-            gap_blind_spot= s - others
+            gap_blind_spot = s - others
 
-            
             if gap_blind_spot >= 0.5 and s >= 3.5:
                 blind_spot_results.append({
                     "question": clean_question,
@@ -1065,31 +1079,31 @@ class CommonFunctions:
                     "others_avg": round(others, 2),
                     "gap": round(gap_blind_spot, 2)
                 })
-            
+
             if gap_hidden_strength >= 0.5 and s <= 3:
                 hidden_strength_results.append({
-                   "question": clean_question,
-                   "self":s,
-                   "others":round(others, 2),
-                   "gap":round(gap_hidden_strength,2)
-                })  
+                    "question": clean_question,
+                    "self": s,
+                    "others": round(others, 2),
+                    "gap": round(gap_hidden_strength, 2)
+                })
 
             area_improvement_candidates.append({
                 "question": clean_question,
-                "others":round(others, 2),
+                "others": round(others, 2),
             })
-            
+
             strengths.append({
-                 "question": clean_question,
-                "others":round(others, 2),
-             })  
-            area_improvement_candidates = sorted(area_improvement_candidates,key=lambda x:x["others"])[:5]
-            strengths = sorted(strengths,key=lambda x:x["others"],reverse=True)[:5]
+                "question": clean_question,
+                "others": round(others, 2),
+            })
+            area_improvement_candidates = sorted(area_improvement_candidates, key=lambda x: x["others"])[:5]
+            strengths = sorted(strengths, key=lambda x: x["others"], reverse=True)[:5]
 
-        final_result_strengths = sorted(hidden_strength_results,key=lambda x:x["gap"],reverse=True)[:5]
-        final_result_blind_spots = sorted(blind_spot_results,key=lambda x:x["gap"],reverse=True)[:5]
+        final_result_strengths = sorted(hidden_strength_results, key=lambda x: x["gap"], reverse=True)[:5]
+        final_result_blind_spots = sorted(blind_spot_results, key=lambda x: x["gap"], reverse=True)[:5]
 
-        return final_result_strengths, final_result_blind_spots ,area_improvement_candidates,strengths
+        return final_result_strengths, final_result_blind_spots, area_improvement_candidates, strengths
 
                     
     @staticmethod
