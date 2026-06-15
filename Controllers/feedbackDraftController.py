@@ -50,7 +50,6 @@ class FeedbackDraftController:
         try:
             user_id = user.get("user_id", "")
 
-            # Accept either a list of drafts or a single draft object
             drafts = data if isinstance(data, list) else [data]
 
             saved_ids = []
@@ -60,7 +59,6 @@ class FeedbackDraftController:
                 excel_name = item.get("excel_name", "")
                 excel_name = excel_name.strip().lower().replace(" ", "_") if excel_name else ""
 
-                # Check if a draft already exists for this user + excel_name + report_type
                 existing = self.feedback_draft_model.objects(
                     user_id=user_id,
                     excel_name=excel_name,
