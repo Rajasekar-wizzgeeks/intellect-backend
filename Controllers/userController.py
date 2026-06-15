@@ -29,7 +29,7 @@ class UserController:
         except ApiException:
             raise
         except Exception as e:
-            raise ApiException(500, "Error creating user", str(e))
+            raise ApiException(500, "Error creating user"+ str(e))
 
     def get_user_by_id(self, user_id):
         try:
