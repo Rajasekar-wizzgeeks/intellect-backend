@@ -1049,66 +1049,83 @@ class CommonFunctions:
         return category_wise_overall_scores,feedbacks   
 
     @staticmethod
-    def get_highlights(behavioural_datas):
+    def get_highlights(category_data,is_avg_of_avg=False):
         hidden_strength_results = []
         blind_spot_results = []
         area_improvement_candidates = []
         strengths = []
-        if not behavioural_datas:
+        if not category_data:
             return [],[],[],[]
 
         def strip_serial(q):
             return re.sub(r"^\d+\.\s*", "", q).strip()
 
-        def iter_questions(data):
-            for key, val in data.items():
-                if isinstance(val, dict) and val and isinstance(next(iter(val.values())), list):
-                    for q, items in val.items():
-                        yield q, items
-                else:
-                    yield key, val
+        # def iter_questions(data):
+        #     for key, val in data.items():
+        #         if isinstance(val, dict) and val and isinstance(next(iter(val.values())), list):
+        #             for q, items in val.items():
+        #                 yield q, items
+        #         else:
+        #             yield key, val
 
-        for question, behavioural_data in iter_questions(behavioural_datas):
-            if not behavioural_data:
+
+        for competency, competency_data in category_data.items():
+            if not competency_data:
                 continue
-            clean_question = strip_serial(question)
-            value = behavioural_data[0].get("score")
-            m = value.get("Manager", 0) or 0
-            s = value.get("Self", 0) or 0
-            p = value.get("Peer", 0) or 0
-            sub = value.get("Subordinate", 0) or 0
+            if "Feedback" in competency:
+                continue
+            for question_data in competency_data:
+                if not isinstance(question_data, dict):
+                    continue
+                question, value = next(iter(question_data.items()))
+                if not isinstance(value, dict):
+                    continue
+                clean_question = strip_serial(question)
+                manager_scores = value.get("Manager") or []
+                self_scores = value.get("Self") or []
+                peer_scores = value.get("Peer") or []
+                subordinate_scores = value.get("Subordinate") or []
 
-            others = (m + p + sub) / 3
-            gap_hidden_strength = others - s
-            gap_blind_spot = s - others
+                manager_avg = sum(manager_scores)/len(manager_scores) if manager_scores else 0
+                self_avg = sum(self_scores)/len(self_scores) if self_scores else 0
+                peer_avg = sum(peer_scores)/len(peer_scores) if peer_scores else 0
+                subordinate_avg = sum(subordinate_scores)/len(subordinate_scores) if subordinate_scores else 0
 
-            if gap_blind_spot >= 0.5 and s >= 3.5:
-                blind_spot_results.append({
+                if is_avg_of_avg:
+                    others = (manager_avg + peer_avg + subordinate_avg) / 3
+                else:
+                    all_others = manager_scores + peer_scores + subordinate_scores
+                    others = sum(all_others) / len(all_others) if all_others else 0
+                gap_hidden_strength = others - self_avg
+                gap_blind_spot = self_avg - others
+
+                if gap_blind_spot >= 0.5 and self_avg >= 3.5:
+                    blind_spot_results.append({
+                        "question": clean_question,
+                        "self": self_avg,
+                        "others_avg": round(others, 2),
+                        "gap": round(gap_blind_spot, 2)
+                    })
+
+                if gap_hidden_strength >= 0.5 and self_avg <= 3:
+                    hidden_strength_results.append({
+                        "question": clean_question,
+                        "self": self_avg,
+                        "others": round(others, 2),
+                        "gap": round(gap_hidden_strength, 2)
+                    })
+
+                area_improvement_candidates.append({
                     "question": clean_question,
-                    "self": s,
-                    "others_avg": round(others, 2),
-                    "gap": round(gap_blind_spot, 2)
-                })
-
-            if gap_hidden_strength >= 0.5 and s <= 3:
-                hidden_strength_results.append({
-                    "question": clean_question,
-                    "self": s,
                     "others": round(others, 2),
-                    "gap": round(gap_hidden_strength, 2)
                 })
 
-            area_improvement_candidates.append({
-                "question": clean_question,
-                "others": round(others, 2),
-            })
-
-            strengths.append({
-                "question": clean_question,
-                "others": round(others, 2),
-            })
-            area_improvement_candidates = sorted(area_improvement_candidates, key=lambda x: x["others"])[:5]
-            strengths = sorted(strengths, key=lambda x: x["others"], reverse=True)[:5]
+                strengths.append({
+                    "question": clean_question,
+                    "others": round(others, 2),
+                })
+                area_improvement_candidates = sorted(area_improvement_candidates, key=lambda x: x["others"])[:5]
+                strengths = sorted(strengths, key=lambda x: x["others"], reverse=True)[:5]
 
         final_result_strengths = sorted(hidden_strength_results, key=lambda x: x["gap"], reverse=True)[:5]
         final_result_blind_spots = sorted(blind_spot_results, key=lambda x: x["gap"], reverse=True)[:5]

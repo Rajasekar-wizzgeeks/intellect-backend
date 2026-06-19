@@ -259,7 +259,7 @@ class LBscore360Controller:
                                             _score[_key] = 0
 
                         overall_behavioural_indications, feedbacks = CommonFunctions.lbscore_overall_summary_of_scores(category_data)
-                        hidden_strengths, blind_spots, area_of_improvements, strengths = CommonFunctions.get_highlights(behavioural_indications)
+                        hidden_strengths, blind_spots, area_of_improvements, strengths = CommonFunctions.get_highlights(category_data)
 
                         # Participant vs cohort
                         try:
