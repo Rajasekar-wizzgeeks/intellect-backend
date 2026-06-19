@@ -16,7 +16,7 @@ class LBscore360Controller:
         self.now = datetime.now()
         self.formatted_date = self.now.strftime("%b %Y")
 
-    async def start_lbscore360_excel_base_job(self, file):
+    async def start_lbscore360_excel_base_job(self, file,is_avg_of_avg):
         headers = {
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
@@ -258,8 +258,8 @@ class LBscore360Controller:
                                         if _key not in _score:
                                             _score[_key] = 0
 
-                        overall_behavioural_indications, feedbacks = CommonFunctions.lbscore_overall_summary_of_scores(category_data)
-                        hidden_strengths, blind_spots, area_of_improvements, strengths = CommonFunctions.get_highlights(category_data)
+                        overall_behavioural_indications, feedbacks = CommonFunctions.lbscore_overall_summary_of_scores(category_data,is_avg_of_avg)
+                        hidden_strengths, blind_spots, area_of_improvements, strengths = CommonFunctions.get_highlights(category_data,is_avg_of_avg)
 
                         # Participant vs cohort
                         try:
@@ -284,7 +284,7 @@ class LBscore360Controller:
                             "participant_and_cohort_summary": participant_and_cohort_summary,
                         })
 
-                    competency_summary = CommonFunctions.get_competency_summary(employee_wise_category_data)
+                    competency_summary = CommonFunctions.get_competency_summary(employee_wise_category_data,is_avg_of_avg)
 
                     for result in per_recipient_results:
                         result["competency_summary"] = competency_summary.get(result["employee_name"], {})
