@@ -168,6 +168,7 @@ class FeedbackSummaryController:
                     employee_wise_overall_data = CommonFunctions.get_employee_wise_overall_data(all_records)
                     summary_framework_recap = CommonFunctions.get_summary_framework_recap(all_records)
                     leadership_profile_data = CommonFunctions.get_leadership_profiles(employee_wise_overall_data)
+                    notes = CommonFunctions.get_self_rating_notes(all_records)
                     
                     return {
                         "name": name,
@@ -180,7 +181,8 @@ class FeedbackSummaryController:
                         "institution_competency_summary":institution_competency_summary,
                         "overall_principal_averages":overall_principal_averages,
                         "comments_with_employee_name":comments_with_employee_name,
-                        "leadership_profile_data":leadership_profile_data
+                        "leadership_profile_data":leadership_profile_data,
+                        "notes": notes
                     }
 
                 pre = await asyncio.to_thread(preprocess_base_sync, files)
@@ -209,6 +211,9 @@ class FeedbackSummaryController:
                 yield f"data: {json.dumps(payload)}\n\n"
 
                 payload = {'type': 'overall_questionwise_data', 'overall_questionwise_data': pre.get('overall_questionwise_data', {})}
+                yield f"data: {json.dumps(payload)}\n\n"
+
+                payload = {'type': 'notes', 'notes': pre.get('notes', []), 'data': pre.get('notes', [])}
                 yield f"data: {json.dumps(payload)}\n\n"
 
                 leadership_profile_data = pre.get('leadership_profile_data', {})
@@ -260,31 +265,29 @@ class FeedbackSummaryController:
               
 
                 
-                # controller = LLMGenerationController()
+                controller = LLMGenerationController()
 
-                
-                
-                # async def run_and_yield(name, task, *args):
-                #     res = await asyncio.to_thread(CommonFunctions.timed_task, name, task, *args)
-                #     return name, res
+                async def run_and_yield(name, task, *args):
+                    res = await asyncio.to_thread(CommonFunctions.timed_task, name, task, *args)
+                    return name, res
 
-                # tasks = [
-                #     run_and_yield("LLM Frequently_occuring_suggestions", controller.analysis_comment_to_generate, json.dumps(pre.get('comments_with_employee_name', [])),FREQUENTLY_OCCURING_SUGGESTIONS, LEADERSHIP_THEME_CLUSTER_SCHEMA),
-                # ]
+                tasks = [
+                    run_and_yield("LLM Frequently_occuring_suggestions", controller.analysis_comment_to_generate, json.dumps(pre.get('comments_with_employee_name', [])),FREQUENTLY_OCCURING_SUGGESTIONS, LEADERSHIP_THEME_CLUSTER_SCHEMA),
+                ]
 
-                # for future in asyncio.as_completed(tasks):
-                #     task_name, result = await future
-                #     if not isinstance(result, dict):
-                #         payload = {'type': 'error', 'source': task_name, 'error': 'Invalid LLM response'}
-                #         yield f"data: {json.dumps(payload)}\n\n"
-                #         continue
-                #     if result.get('error'):
-                #         payload = {'type': 'error', 'source': task_name, 'error': result.get('error')}
-                #         yield f"data: {json.dumps(payload)}\n\n"
-                #         continue
-                #     if task_name == "LLM Frequently_occuring_suggestions":
-                #         payload = {'type': 'frequently_occuring_suggestions', 'frequently_occuring_suggestions': result.get('structured', {})}
-                #         yield f"data: {json.dumps(payload)}\n\n"
+                for future in asyncio.as_completed(tasks):
+                    task_name, result = await future
+                    if not isinstance(result, dict):
+                        payload = {'type': 'error', 'source': task_name, 'error': 'Invalid LLM response'}
+                        yield f"data: {json.dumps(payload)}\n\n"
+                        continue
+                    if result.get('error'):
+                        payload = {'type': 'error', 'source': task_name, 'error': result.get('error')}
+                        yield f"data: {json.dumps(payload)}\n\n"
+                        continue
+                    if task_name == "LLM Frequently_occuring_suggestions":
+                        payload = {'type': 'frequently_occuring_suggestions', 'frequently_occuring_suggestions': result.get('structured', {})}
+                        yield f"data: {json.dumps(payload)}\n\n"
 
 
                 yield "data: [DONE]\n\n"

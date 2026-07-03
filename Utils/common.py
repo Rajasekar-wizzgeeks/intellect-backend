@@ -1696,7 +1696,70 @@ class CommonFunctions:
             "max":round(max(values), 2)
         }
     
-  
+    @staticmethod
+    def get_self_rating_notes(all_records):
+        self_ratings = defaultdict(dict)
+        for row in all_records:
+            if not isinstance(row, dict):
+                continue
+            rater_type = row.get("Rate Group","") or row.get("Rater Group","") or row.get("Rater type","") 
+            if not rater_type:
+                continue
+            rater_type = str(rater_type).strip().lower()
+            if rater_type != "self":
+                continue
+            
+            employee = row.get("Employee Name") or row.get("Name")
+            if not employee:
+                continue
+            
+            question = row.get("Question")
+            if not question:
+                continue
+                
+            rating = row.get("Rating")
+            if rating is None:
+                continue
+            try:
+                val = float(rating)
+            except (ValueError, TypeError):
+                continue
+                
+            self_ratings[employee][question] = val
+
+        # Now, calculate counts per employee
+        employee_counts = {}
+        for employee, q_ratings in self_ratings.items():
+            total_rated = len(q_ratings)
+            count_5 = sum(1 for q, r in q_ratings.items() if r == 5.0)
+            if total_rated > 0:
+                employee_counts[employee] = (count_5, total_rated)
+
+        # Group employees by their (count_5, total_rated)
+        groups = defaultdict(list)
+        for employee, (count_5, total_rated) in employee_counts.items():
+            if count_5 > 0 and (count_5 / total_rated >= 0.5 or count_5 >= 15):
+                groups[(count_5, total_rated)].append(employee)
+
+        # Sort groups: count_5 descending, then total_rated descending
+        sorted_keys = sorted(groups.keys(), key=lambda x: (x[0], x[1]), reverse=True)
+
+        notes = []
+        for key in sorted_keys:
+            count_5, total_rated = key
+            employees = sorted(groups[key])
+            
+            if len(employees) == 1:
+                names_str = employees[0]
+            elif len(employees) == 2:
+                names_str = f"{employees[0]} and {employees[1]}"
+            else:
+                names_str = ", ".join(employees[:-1]) + f" and {employees[-1]}"
+                
+            notes.append(f"{names_str} (Rating 5 for {count_5} out of {total_rated} questions)")
+            
+        return notes
+    
     @staticmethod
     def calculate_participant_and_cohort_rating(employee_wise_category_data,target_employee):
 
