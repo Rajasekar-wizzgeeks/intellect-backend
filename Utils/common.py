@@ -1445,7 +1445,7 @@ class CommonFunctions:
                 if item[1].get("Subordinates") is not None
             ],
             key=lambda x: x[1].get("Subordinates") or 0,
-            reverse=True)[:5]
+            reverse=True)[:3]
 
         lowest_team_avg = sorted(
             [
@@ -1453,7 +1453,7 @@ class CommonFunctions:
                 if item[1].get("Subordinates") is not None
             ],
             key=lambda x: x[1].get("Subordinates") or 0,
-            reverse=False)[:5]
+            reverse=False)[:3]
 
         highest_manager_avg = sorted(
             [
@@ -1461,7 +1461,7 @@ class CommonFunctions:
                 if item[1].get("Manager") is not None
             ],
             key=lambda x: x[1].get("Manager") or 0,
-            reverse=True)[:5]
+            reverse=True)[:3]
         
         lowest_manager_avg = sorted(
             [
@@ -1469,7 +1469,7 @@ class CommonFunctions:
                 if item[1].get("Manager") is not None
             ],
             key=lambda x: x[1].get("Manager") or 0,
-            reverse=False)[:5]
+            reverse=False)[:3]
 
         return highest_team_avg, lowest_team_avg, highest_manager_avg, lowest_manager_avg
 
