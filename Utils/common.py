@@ -944,19 +944,19 @@ class CommonFunctions:
                     gap["self_gap"] = 0
 
                     gap["manager_gap"] = (
-                        round((self_score - manager_score),2)
+                        round((self_score - manager_score)* -1,2)
                         if self_score != "NA" and manager_score != "NA"
                         else "NA"
                     )
 
                     gap["peer_avg"] = (
-                        round((self_score - peer_score),2)
+                        round((self_score - peer_score)* -1,2)
                         if self_score != "NA" and peer_score != "NA"
                         else "NA"
                     )
 
                     gap["subordinate_avg"] = (
-                        round((self_score - subordinate_score),2)
+                        round((self_score - subordinate_score)*-1,2)
                         if self_score != "NA" and subordinate_score != "NA"
                         else "NA"
                     )
