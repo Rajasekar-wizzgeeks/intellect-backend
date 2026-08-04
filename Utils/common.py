@@ -8,6 +8,7 @@ from collections import defaultdict
 import asyncio
 import json
 import numpy as np
+from Models.categoryConfig import CategoryConfig
 
 
 class CommonFunctions:
@@ -557,7 +558,7 @@ class CommonFunctions:
 
         final_avg = {}
         for group, values in grouped.items():
-            final_avg[group] = round(sum(values) / len(values), 2)
+            final_avg[group] = round(sum(values) / len(values), 2) if values else 0
         
         return final_avg
 
@@ -1035,7 +1036,7 @@ class CommonFunctions:
                 if is_avg_of_avg :
                     final_others_avg = round((final_total_avg_except_self/3),2)
                 else:
-                    final_others_avg = round((total_sum/total_count),2) 
+                    final_others_avg = round((total_sum/total_count),2) if total_count else 0 
                 spider_chart_others_avg=round((final_peer_avg+final_subordinate_avg)/2,1)
                 category_wise_overall_scores[category] = {
                     "manager_avg": final_manager_avg,
@@ -1178,6 +1179,22 @@ class CommonFunctions:
             }
         }
 
+        try:
+            configs = list(CategoryConfig.objects.all())
+            if configs:
+                dynamic_weights = {}
+                for conf in configs:
+                    name_key = conf.name
+                    alt_key = name_key.replace("&", "and")
+                    for role, weight in (conf.role_weights or {}).items():
+                        dynamic_weights.setdefault(role, {})[name_key] = weight
+                        if alt_key != name_key:
+                            dynamic_weights[role][alt_key] = weight
+                if dynamic_weights:
+                    ROLE_WEIGHTS = dynamic_weights
+        except Exception as e:
+            print(f"Error building dynamic ROLE_WEIGHTS: {e}")
+
         employee_results = {}
 
         all_scores = []
@@ -1273,7 +1290,7 @@ class CommonFunctions:
                     
                 else:
 
-                    others_avg = (total_scores/total_count) if total_scores else 0 
+                    others_avg = (total_scores/total_count) if total_count else 0 
 
                 weight = weights.get(
                         competency,

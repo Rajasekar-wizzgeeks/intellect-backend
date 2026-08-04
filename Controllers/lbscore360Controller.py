@@ -10,6 +10,7 @@ import os
 import asyncio
 from collections import defaultdict, OrderedDict
 from Utils.common import CommonFunctions
+from Models.categoryConfig import CategoryConfig
 
 class LBscore360Controller:
     def __init__(self):
@@ -106,6 +107,40 @@ class LBscore360Controller:
                             return match.group(1).strip(), match.group(2).strip()
                         return None, column
 
+                    def get_category_lookup():
+                        lookup = {}
+                        try:
+                            db_configs = list(CategoryConfig.objects.order_by('order'))
+                        except Exception:
+                            db_configs = []
+
+                        if db_configs:
+                            for conf in db_configs:
+                                c_name = conf.name.strip()
+                                fb_key = conf.feedback_key.strip()
+                                lookup[c_name.lower()] = c_name
+                                lookup[fb_key.lower()] = fb_key
+                                lookup[c_name.replace("&", "and").lower()] = c_name
+                                lookup[fb_key.replace("&", "and").lower()] = fb_key
+                        else:
+                            default_cats = [
+                                ("Leadership", "Leadership Feedback"),
+                                ("Bandwidth", "Bandwidth Feedback"),
+                                ("Sales & Customer Centricity", "Sales and Customer Centricity Feedback"),
+                                ("Collaboration", "Collaboration Feedback"),
+                                ("Operational Excellence", "Operational Excellence Feedback"),
+                                ("Results Orientation", "Result Orientation Feedback"),
+                                ("Expertise & Communication", "Expertise and Communication Feedback"),
+                            ]
+                            for c_name, fb_key in default_cats:
+                                lookup[c_name.lower()] = c_name
+                                lookup[fb_key.lower()] = fb_key
+                                lookup[c_name.replace("&", "and").lower()] = c_name
+                                lookup[fb_key.replace("&", "and").lower()] = fb_key
+                        return lookup
+
+                    category_lookup = get_category_lookup()
+
                     if all_records and "Feedback recipient ID" in all_records[0] and "Name" not in all_records[0]:
                         # Wide-format Excel (the lbscore360 format with bracketed column headers)
                         columns = list(all_records[0].keys())
@@ -115,6 +150,10 @@ class LBscore360Controller:
                             category, question = extract_category_name(col)
                             if not category:
                                 continue
+                            canonical_cat = category_lookup.get(category.strip().lower())
+                            if not canonical_cat:
+                                continue
+                            category = canonical_cat
                             for row in all_records:
                                 employee_name = get_display_name(row.get("Feedback recipient name"))
                                 rg = (
@@ -195,22 +234,43 @@ class LBscore360Controller:
                             for row in recipient_rows:
                                 grouped_by_name[row.get("Name")].append(row)
 
-                            category_data = {
-                                "Leadership": grouped_by_name.get("Leadership", []),
-                                "Leadership Feedback": grouped_by_name.get("Leadership Feedback", []),
-                                "Bandwidth": grouped_by_name.get("Bandwidth", []),
-                                "Bandwidth Feedback": grouped_by_name.get("Bandwidth Feedback", []),
-                                "Sales and Customer Centricity": grouped_by_name.get("Sales and Customer Centricity", []),
-                                "Sales and Customer Centricity Feedback": grouped_by_name.get("Sales and Customer Centricity Feedback", []),
-                                "Collaboration": grouped_by_name.get("Collaboration", []),
-                                "Collaboration Feedback": grouped_by_name.get("Collaboration Feedback", []),
-                                "Operational Excellence": grouped_by_name.get("Operational Excellence", []),
-                                "Operational Excellence Feedback": grouped_by_name.get("Operational Excellence Feedback", []),
-                                "Result Orientation": grouped_by_name.get("Result Orientation", []),
-                                "Result Orientation Feedback": grouped_by_name.get("Result Orientation Feedback", []),
-                                "Expertise and Communication": grouped_by_name.get("Expertise and Communication", []),
-                                "Expertise and Communication Feedback": grouped_by_name.get("Expertise and Communication Feedback", []),
-                            }
+                            category_data = {}
+                            try:
+                                configs = list(CategoryConfig.objects.order_by('order'))
+                            except Exception:
+                                configs = []
+
+                            if configs:
+                                for conf in configs:
+                                    cat_name = conf.name
+                                    alt_cat_name = cat_name.replace("&", "and")
+                                    category_data[cat_name] = (
+                                        grouped_by_name.get(cat_name) or grouped_by_name.get(alt_cat_name) or []
+                                    )
+                                    
+                                    fb_key = conf.feedback_key
+                                    alt_fb_key = fb_key.replace("&", "and")
+                                    category_data[fb_key] = (
+                                        grouped_by_name.get(fb_key) or grouped_by_name.get(alt_fb_key) or []
+                                    )
+                                print("category_data", category_data)
+                            else:
+                                category_data = {
+                                    "Leadership": grouped_by_name.get("Leadership", []),
+                                    "Leadership Feedback": grouped_by_name.get("Leadership Feedback", []),
+                                    "Bandwidth": grouped_by_name.get("Bandwidth", []),
+                                    "Bandwidth Feedback": grouped_by_name.get("Bandwidth Feedback", []),
+                                    "Sales and Customer Centricity": grouped_by_name.get("Sales and Customer Centricity", []),
+                                    "Sales and Customer Centricity Feedback": grouped_by_name.get("Sales and Customer Centricity Feedback", []),
+                                    "Collaboration": grouped_by_name.get("Collaboration", []),
+                                    "Collaboration Feedback": grouped_by_name.get("Collaboration Feedback", []),
+                                    "Operational Excellence": grouped_by_name.get("Operational Excellence", []),
+                                    "Operational Excellence Feedback": grouped_by_name.get("Operational Excellence Feedback", []),
+                                    "Result Orientation": grouped_by_name.get("Result Orientation", []),
+                                    "Result Orientation Feedback": grouped_by_name.get("Result Orientation Feedback", []),
+                                    "Expertise and Communication": grouped_by_name.get("Expertise and Communication", []),
+                                    "Expertise and Communication Feedback": grouped_by_name.get("Expertise and Communication Feedback", []),
+                                }
                         else:
                             columns = list(recipient_rows[0].keys())
                             for col in columns:
@@ -218,6 +278,11 @@ class LBscore360Controller:
                                     continue
                                 category, question = extract_category(col)
                                 if category:
+                                    canonical_cat = category_lookup.get(category.strip().lower())
+                                    if not canonical_cat:
+                                        continue
+                                    category = canonical_cat
+
                                     if category not in category_data:
                                         category_data[category] = []
 
@@ -247,6 +312,31 @@ class LBscore360Controller:
                                 else:
                                     if question and question not in exceptItem:
                                         general_competency[question] = [r.get(col) for r in recipient_rows]
+
+                        try:
+                            db_configs = list(CategoryConfig.objects.order_by('order'))
+                        except Exception:
+                            db_configs = []
+
+                        if db_configs:
+                            for conf in db_configs:
+                                if conf.name not in category_data:
+                                    category_data[conf.name] = []
+                                if conf.feedback_key not in category_data:
+                                    category_data[conf.feedback_key] = []
+                        else:
+                            default_keys = [
+                                "Leadership", "Leadership Feedback",
+                                "Bandwidth", "Bandwidth Feedback",
+                                "Sales and Customer Centricity", "Sales and Customer Centricity Feedback",
+                                "Collaboration", "Collaboration Feedback",
+                                "Operational Excellence", "Operational Excellence Feedback",
+                                "Result Orientation", "Result Orientation Feedback",
+                                "Expertise and Communication", "Expertise and Communication Feedback"
+                            ]
+                            for dkey in default_keys:
+                                if dkey not in category_data:
+                                    category_data[dkey] = []
 
                         behavioural_indications = CommonFunctions.lbscore_broken_down_by_behavioural_indications(category_data)
 

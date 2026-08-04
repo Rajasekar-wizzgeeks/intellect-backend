@@ -6,9 +6,11 @@ from Routes.FeedbackSummaryRoute import feedback_summary_bp
 from Routes.userRoute import user_bp
 from Routes.loginRoute import login_bp
 from Routes.feedbackDraftRoute import feedback_draft_router
+from Routes.categoryConfigRoutes import category_config_bp
 from Utils.middleware import AuthMiddleware
 
 from Utils.db import connect_to_db
+from Utils.seeder import seed_category_configs
 from Utils.exceptionHandler import exception_handler, default_exception_handler
 from Utils.apiException import ApiException
 
@@ -24,6 +26,7 @@ load_dotenv()
 @asynccontextmanager
 async def startup_db(app:FastAPI):
     connect_to_db()
+    seed_category_configs()
     yield
     print("Application shutdown")
 
@@ -47,6 +50,7 @@ app.include_router(feedback_summary_bp)
 app.include_router(user_bp)
 app.include_router(login_bp)
 app.include_router(feedback_draft_router)
+app.include_router(category_config_bp)
 
 
 
